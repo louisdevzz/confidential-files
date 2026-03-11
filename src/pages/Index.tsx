@@ -40,11 +40,11 @@ const HeroSection = ({ onNavigate }: { onNavigate: (path: string) => void }) => 
         transition={{ delay: 0.4, duration: 0.6 }}
         className="flex flex-col sm:flex-row gap-4 justify-center"
       >
-        <button className="bg-danger-gradient px-8 py-4 rounded-xl font-display text-xl text-foreground shadow-red hover:scale-105 transition-transform flex items-center justify-center gap-2">
+        <button onClick={() => onNavigate("/create")} className="bg-danger-gradient px-8 py-4 rounded-xl font-display text-xl text-foreground shadow-red hover:scale-105 transition-transform flex items-center justify-center gap-2">
           <Sparkles className="w-5 h-5" />
           TẠO PHÒNG
         </button>
-        <button className="mystery-border bg-muted/50 backdrop-blur px-8 py-4 rounded-xl font-display text-xl text-mystery-glow shadow-neon hover:scale-105 transition-transform flex items-center justify-center gap-2">
+        <button onClick={() => onNavigate("/join")} className="mystery-border bg-muted/50 backdrop-blur px-8 py-4 rounded-xl font-display text-xl text-mystery-glow shadow-neon hover:scale-105 transition-transform flex items-center justify-center gap-2">
           <ArrowRight className="w-5 h-5" />
           VÀO PHÒNG
         </button>
