@@ -167,7 +167,7 @@ const CharactersSection = () => (
   </section>
 );
 
-const LobbySection = () => {
+const LobbySection = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
   const [roomCode, setRoomCode] = useState("");
 
   return (
