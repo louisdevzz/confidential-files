@@ -230,12 +230,13 @@ const Footer = () => (
 );
 
 const Index = () => {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
-      <HeroSection />
+      <HeroSection onNavigate={navigate} />
       <GameplaySection />
       <CharactersSection />
-      <LobbySection />
+      <LobbySection onNavigate={navigate} />
       <Footer />
     </div>
   );
