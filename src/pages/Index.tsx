@@ -5,7 +5,7 @@ import heroImage from "@/assets/hero-mystery.png";
 import charactersImage from "@/assets/characters-lineup.png";
 import { useState } from "react";
 
-const HeroSection = () => (
+const HeroSection = ({ onNavigate }: { onNavigate: (path: string) => void }) => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
     {/* Background image with overlay */}
     <div className="absolute inset-0">
