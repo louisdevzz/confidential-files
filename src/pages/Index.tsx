@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import { Search, Users, Trophy, Sparkles, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/hero-mystery.png";
 import charactersImage from "@/assets/characters-lineup.png";
 import { useState } from "react";
 
-const HeroSection = () => (
+const HeroSection = ({ onNavigate }: { onNavigate: (path: string) => void }) => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
     {/* Background image with overlay */}
     <div className="absolute inset-0">
@@ -39,11 +40,11 @@ const HeroSection = () => (
         transition={{ delay: 0.4, duration: 0.6 }}
         className="flex flex-col sm:flex-row gap-4 justify-center"
       >
-        <button className="bg-danger-gradient px-8 py-4 rounded-xl font-display text-xl text-foreground shadow-red hover:scale-105 transition-transform flex items-center justify-center gap-2">
+        <button onClick={() => onNavigate("/create")} className="bg-danger-gradient px-8 py-4 rounded-xl font-display text-xl text-foreground shadow-red hover:scale-105 transition-transform flex items-center justify-center gap-2">
           <Sparkles className="w-5 h-5" />
           TẠO PHÒNG
         </button>
-        <button className="mystery-border bg-muted/50 backdrop-blur px-8 py-4 rounded-xl font-display text-xl text-mystery-glow shadow-neon hover:scale-105 transition-transform flex items-center justify-center gap-2">
+        <button onClick={() => onNavigate("/join")} className="mystery-border bg-muted/50 backdrop-blur px-8 py-4 rounded-xl font-display text-xl text-mystery-glow shadow-neon hover:scale-105 transition-transform flex items-center justify-center gap-2">
           <ArrowRight className="w-5 h-5" />
           VÀO PHÒNG
         </button>
@@ -166,7 +167,7 @@ const CharactersSection = () => (
   </section>
 );
 
-const LobbySection = () => {
+const LobbySection = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
   const [roomCode, setRoomCode] = useState("");
 
   return (
@@ -183,7 +184,7 @@ const LobbySection = () => {
           </h2>
 
           <div className="space-y-4 mb-6">
-            <button className="w-full bg-danger-gradient px-6 py-4 rounded-xl font-display text-lg text-foreground shadow-red hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
+            <button onClick={() => onNavigate("/create")} className="w-full bg-danger-gradient px-6 py-4 rounded-xl font-display text-lg text-foreground shadow-red hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5" />
               TẠO PHÒNG MỚI
             </button>
@@ -229,12 +230,13 @@ const Footer = () => (
 );
 
 const Index = () => {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
-      <HeroSection />
+      <HeroSection onNavigate={navigate} />
       <GameplaySection />
       <CharactersSection />
-      <LobbySection />
+      <LobbySection onNavigate={navigate} />
       <Footer />
     </div>
   );
