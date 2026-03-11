@@ -184,7 +184,7 @@ const LobbySection = ({ onNavigate }: { onNavigate: (path: string) => void }) =>
           </h2>
 
           <div className="space-y-4 mb-6">
-            <button className="w-full bg-danger-gradient px-6 py-4 rounded-xl font-display text-lg text-foreground shadow-red hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
+            <button onClick={() => onNavigate("/create")} className="w-full bg-danger-gradient px-6 py-4 rounded-xl font-display text-lg text-foreground shadow-red hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5" />
               TẠO PHÒNG MỚI
             </button>
