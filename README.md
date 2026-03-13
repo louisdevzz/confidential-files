@@ -2,7 +2,7 @@
 
 > **Trinh Thám Học Đường Co-op — Đánh Bại AI Bằng Kiến Thức Thật**
 
-"Hồ Sơ Mật: AI Ngoại Phạm" là một tựa game trinh thám học đường **nhiều người chơi (Co-op)** chạy trên nền tảng Web. Game ứng dụng AI (LLM) làm **Game Master tự động tạo ra hàng ngàn vụ án vô tận** dựa trên kiến thức các môn Toán, Lý, Hóa, Sinh. Học sinh sẽ lập tổ đội, cùng nhau tham gia vào một phòng chat để "Hỏi cung" kẻ tình nghi (do AI nhập vai). Để chiến thắng, học sinh phải dùng kiến thức học thuật thật sự để **bẻ gãy lập luận dối trá của AI**, ép nó nhận tội, từ đó cày điểm quay Gacha đua Top.
+"Hồ Sơ Mật: AI Ngoại Phạm" là một tựa game trinh thám học đường **nhiều ngườ chơi (Co-op)** chạy trên nền tảng Web. Game ứng dụng AI (LLM) làm **Game Master tự động tạo ra hàng ngàn vụ án vô tận** dựa trên kiến thức các môn Toán, Lý, Hóa, Sinh. Học sinh sẽ lập tổ đội, cùng nhau tham gia vào một phòng chat để "Hỏi cung" kẻ tình nghi (do AI nhập vai). Để chiến thắng, học sinh phải dùng kiến thức học thuật thật sự để **bẻ gãy lập luận dối trá của AI**, ép nó nhận tội, từ đó cày điểm quay Gacha đua Top.
 
 Đây không chỉ là một mini-game mà hoàn toàn có thể trở thành một module **"Gamification" (Game hóa) cực kỳ đột phá** cho các nền tảng học tập thích ứng (Adaptive Learning), giúp học sinh tự nguyện ôn bài mà không hề gượng ép.
 
@@ -12,59 +12,85 @@
 
 ### 1. Sinh Án (Tự động)
 Học sinh tạo phòng (Lobby). Hệ thống gọi **API Tầng 1** tự động đẻ ra một vụ án ngẫu nhiên:
-- Bối cảnh câu chuyện
-- Tên hung thủ & lý lịch
-- Lời khai giả chứa **lỗi sai kiến thức** (Toán / Lý / Hóa / Sinh)
+- Bối cảnh câu chuyện học đường (lớp học, thư viện, phòng lab, căn tin...)
+- Tên hung thủ & đặc điểm nhận dạng
+- Lờ khai giả chứa **lỗi sai kiến thức** (Toán / Lý / Hóa / Sinh)
 - Từ khóa đáp án (ẩn, dùng để chấm điểm)
 
 ### 2. Thảo Luận & Thẩm Vấn (Co-op)
 Một nhóm **3–5 học sinh** cùng vào phòng. Đọc hồ sơ vụ án và bắt đầu chat trực tiếp với AI (**Tầng 2**):
-- AI nhập vai hung thủ — **cực kỳ ngoan cố**, trả lời trịch thượng và tung hỏa mù
+- AI nhập vai hung thủ — **cực kỳ ngoan cố**, trả lờ trịch thượng và tung hỏa mù
 - Cả nhóm phải bàn bạc để tìm ra điểm vô lý
 - *Ví dụ: "Nhôm không phản ứng với H₂SO₄ đặc nguội" — AI đang nói dối!*
 
 ### 3. Cú Chốt Hạ (Combat bằng Kiến thức)
-Một học sinh tìm ra chân lý, gõ lời giải thích chứa **"Từ khóa cốt lõi"** vào khung chat:
+Một học sinh tìm ra chân lý, gõ lờ giải thích chứa **"Từ khóa cốt lõi"** vào khung chat:
 - AI nhận diện được → lập tức thay đổi thái độ sang hoảng sợ
 - AI nhận tội và nhả mã `[GAME_OVER]`
 
 ### 4. Vinh Danh MVP & Gacha
 Game kết thúc. Hệ thống trao thưởng:
-- Người tung đòn "Chốt hạ" → **MVP** → nhận nhiều vé Gacha nhất
+- Ngườ tung đòn "Chốt hạ" → **MVP** → nhận nhiều vé Gacha nhất
 - Cả phòng dùng vé để quay:
-  - 🃏 Thẻ nhân vật Truyện tranh (**SSR**, **SR**)
-  - 🖼️ Khung Avatar flex trên Bảng Xếp Hạng
-  - 🎭 Đạo cụ dùng để "chơi dơ" bạn bè ở ván sau
+  - 🃏 **Nhân vật Chibi Anime** (SSR 3%, SR 15%, R 35%, N 47%)
+  - 🖼️ **Avatar độc quyền** để flex trên Bảng Xếp Hạng
+  - 🎨 **AI tự động vẽ** — Mỗi nhân vật là một bức tranh chibi anime kawaii duy nhất
 
 ---
 
 ## 🏗️ Kiến Trúc Hệ Thống
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    FRONTEND (React + Vite)           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
-│  │  Lobby   │  │  Chat    │  │  Gacha / Leaderboard│  │
-│  │  Room    │  │  Room    │  │  Board           │   │
-│  └──────────┘  └──────────┘  └──────────────────┘   │
-└─────────────────────────────┬───────────────────────┘
-                              │ WebSocket / REST
-┌─────────────────────────────▼───────────────────────┐
-│                    BACKEND / BFF                     │
-│  ┌────────────────┐   ┌────────────────────────────┐ │
-│  │  Tầng 1 (GM)   │   │  Tầng 2 (Suspect AI)       │ │
-│  │  Sinh Án       │   │  Hỏi Cung + Chốt Hạ        │ │
-│  │  LLM Prompt    │   │  LLM Roleplay Persona       │ │
-│  └────────────────┘   └────────────────────────────┘ │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React + Vite)                   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │
+│  │  Home    │  │  Create  │  │  Lobby   │  │  Gacha       │  │
+│  │  Page    │  │  Room    │  │  (Co-op) │  │  (Quay thẻ)  │  │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │
+│  │  Join    │  │  Room    │  │  Profile │  │  Ranking     │  │
+│  │  Room    │  │  List    │  │  (Equip) │  │  (Leaderboard)│  │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────────┘  │
+└─────────────────────────────────┬───────────────────────────┘
+                                  │ REST API / WebSocket
+┌─────────────────────────────────▼───────────────────────────┐
+│                    BACKEND (Express + Node.js)               │
+│  ┌────────────────────┐   ┌────────────────────────────────┐│
+│  │  Tầng 1 (GM)       │   │  Tầng 2 (Suspect AI)           ││
+│  │  /api/cases        │   │  /api/chat                     ││
+│  │  Sinh Án + Lờ Khai │   │  Hỏi Cung + Keyword Detection  ││
+│  └────────────────────┘   └────────────────────────────────┘│
+│  ┌────────────────────┐   ┌────────────────────────────────┐│
+│  │  Gacha System      │   │  AI Image Generation           ││
+│  │  /api/gacha        │   │  Gemini 3 Pro Image            ││
+│  │  Roll + Collection │   │  Full-body Chibi Anime         ││
+│  └────────────────────┘   └────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+                              │
+                    ┌─────────▼──────────┐
+                    │   Supabase         │
+                    │  - PostgreSQL      │
+                    │  - Realtime        │
+                    │  - Storage         │
+                    └────────────────────┘
 ```
 
 ### Hai Tầng AI
 
-| Tầng | Vai Trò | Prompt Strategy |
-|------|---------|-----------------|
-| **Tầng 1 — Game Master** | Sinh vụ án, dựng lời khai sai, đặt từ khóa đáp án | Zero-shot generation với schema JSON |
-| **Tầng 2 — Suspect AI** | Nhập vai hung thủ, phủ nhận, tung hỏa mù, nhận tội khi bị vạch trần | System prompt persona + keyword detection |
+| Tầng | Vai Trò | API Endpoint | Prompt Strategy |
+|------|---------|--------------|-----------------|
+| **Tầng 1 — Game Master** | Sinh vụ án, dựng lờ khai sai, đặt từ khóa đáp án | `POST /api/cases/generate` | Zero-shot generation với schema JSON |
+| **Tầng 2 — Suspect AI** | Nhập vai hung thủ, phủ nhận, tung hỏa mù, nhận tội khi bị vạch trần | `POST /api/chat` | System prompt persona + keyword detection |
+
+### Gacha System
+
+| Tính năng | Mô tả |
+|-----------|-------|
+| **Roll Gacha** | Quay nhân vật ngẫu nhiên với tỷ lệ rớt: SSR (3%), SR (15%), R (35%), N (47%) |
+| **AI Image Generation** | Tự động tạo ảnh chibi anime bằng **Gemini AI** — mỗi nhân vật là duy nhất |
+| **Collection** | Xem và quản lý bộ sưu tập nhân vật đã sở hữu |
+| **Equip Avatar** | Đổi avatar profile bằng nhân vật trong bộ sưu tập |
+| **Admin Mode** | Email `louisdevzz04@gmail.com` có vé Gacha vô hạn (∞) |
 
 ---
 
@@ -84,11 +110,17 @@ Game kết thúc. Hệ thống trao thưởng:
 | Layer | Technology |
 |-------|-----------|
 | **Frontend** | React 18, TypeScript, Vite |
+| **State Management** | TanStack Query (React Query) |
 | **UI Components** | shadcn/ui, Radix UI, Tailwind CSS |
 | **Animation** | Framer Motion |
 | **Routing** | React Router DOM |
-| **Real-time** | WebSocket (Co-op chat) |
-| **AI / LLM** | LLM API (OpenAI / Gemini / Claude) |
+| **Authentication** | Supabase Auth |
+| **Backend** | Express.js, Node.js |
+| **Database** | Supabase (PostgreSQL) |
+| **Realtime** | Supabase Realtime |
+| **Storage** | Supabase Storage (avatars bucket) |
+| **AI / LLM** | Gemini API (Google) |
+| **AI Image** | Gemini 3 Pro Image / Gemini 2.0 Flash Image |
 | **Testing** | Vitest, Playwright |
 | **Package Manager** | Bun |
 
@@ -96,35 +128,87 @@ Game kết thúc. Hệ thống trao thưởng:
 
 ## 🚀 Chạy Dự Án
 
+### Prerequisites
+- Node.js 18+ 
+- Bun 1.0+
+- Supabase account
+- Gemini API key
+
+### Setup
+
 ```sh
 # Clone repo
 git clone <YOUR_GIT_URL>
 cd confidential-files
 
-# Cài đặt dependencies (dùng Bun)
+# Cài đặt dependencies (Frontend)
 bun install
 
-# Khởi động dev server
-bun run dev
-
-# Chạy unit tests
-bun run test
-
-# Chạy E2E tests
-bunx playwright test
-
-# Build production
-bun run build
+# Cài đặt dependencies (Backend)
+cd backend && bun install
 ```
 
-### Biến Môi Trường
+### Environment Variables
 
-Tạo file `.env.local` ở root:
+Tạo file `.env` ở root:
 
 ```env
-VITE_LLM_API_KEY=your_api_key_here
-VITE_LLM_API_URL=https://api.openai.com/v1
-VITE_WS_URL=ws://localhost:3001
+# Frontend
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_BACKEND_API_URL=http://localhost:3001/api
+```
+
+Tạo file `backend/.env`:
+
+```env
+# Backend
+PORT=3001
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
+FRONTEND_URL=http://localhost:5173
+```
+
+### Database Setup
+
+```sh
+# Push schema lên Supabase
+bun run db:push
+
+# Generate seed avatars (optional)
+bun run backend/src/scripts/generate-seed-avatars.mjs
+```
+
+### Run Development
+
+```sh
+# Terminal 1: Backend
+cd backend && bun run dev
+
+# Terminal 2: Frontend
+bun run dev
+```
+
+### Testing
+
+```sh
+# Unit tests
+bun run test
+
+# E2E tests
+bunx playwright test
+```
+
+### Build Production
+
+```sh
+# Build frontend
+bun run build
+
+# Build backend
+cd backend && bun run build
 ```
 
 ---
@@ -132,25 +216,91 @@ VITE_WS_URL=ws://localhost:3001
 ## 📁 Cấu Trúc Thư Mục
 
 ```
-src/
-├── pages/
-│   ├── Index.tsx          # Landing page + Hero section
-│   ├── CreateRoom.tsx     # Tạo phòng chơi
-│   ├── JoinRoom.tsx       # Tham gia phòng bằng mã
-│   ├── Lobby.tsx          # Phòng chờ Co-op
-│   └── NotFound.tsx       # 404
-├── components/
-│   ├── NavLink.tsx        # Navigation
-│   └── ui/                # shadcn/ui components
-├── hooks/                 # Custom React hooks
-├── lib/
-│   └── utils.ts           # Utilities (cn, etc.)
-└── test/                  # Unit & integration tests
+├── src/                          # Frontend source
+│   ├── pages/                    # React pages
+│   │   ├── Index.tsx             # Landing page
+│   │   ├── CreateRoom.tsx        # Tạo phòng
+│   │   ├── JoinRoom.tsx          # Tham gia phòng
+│   │   ├── Lobby.tsx             # Phòng chờ Co-op
+│   │   ├── Game.tsx              # Màn chơi chat với AI
+│   │   ├── Gacha.tsx             # Quay Gacha
+│   │   ├── Profile.tsx           # Hồ sơ + Bộ sưu tập
+│   │   ├── Ranking.tsx           # Bảng xếp hạng
+│   │   └── RoomList.tsx          # Danh sách phòng
+│   ├── components/               # Components
+│   │   ├── Header.tsx            # Navigation header
+│   │   └── ui/                   # shadcn/ui components
+│   ├── hooks/                    # Custom React hooks
+│   │   └── useAuth.tsx           # Auth context
+│   ├── services/                 # API services
+│   │   └── gachaService.ts       # Gacha API client
+│   ├── lib/                      # Utilities
+│   │   ├── supabase.ts           # Supabase client
+│   │   └── utils.ts              # Helper functions
+│   └── test/                     # Unit tests
+│
+├── backend/                      # Backend API
+│   ├── src/
+│   │   ├── routes/               # API routes
+│   │   │   ├── cases.ts          # Tầng 1: Sinh án
+│   │   │   ├── chat.ts           # Tầng 2: Chat AI
+│   │   │   └── gacha.ts          # Gacha system
+│   │   ├── services/             # Business logic
+│   │   │   ├── geminiService.ts  # LLM chat
+│   │   │   └── geminiImageService.ts  # AI image generation
+│   │   ├── lib/
+│   │   │   └── supabase.ts       # Supabase admin client
+│   │   └── server.ts             # Express server
+│   └── package.json
+│
+├── supabase/                     # Database
+│   ├── schema.sql                # Main schema
+│   └── gacha-schema.sql          # Gacha tables
+│
+├── scripts/                      # Utility scripts
+│   ├── push-schema.mjs           # DB migration
+│   └── generate-seed-avatars.mjs # Generate seed avatars
+│
+└── package.json
 ```
 
 ---
 
-## 🎯 Tầm Nhìn Sản Phẩm
+## 🎯 Tính Năng Chính
+
+### 1. Hệ Thống Phòng Co-op
+- Tạo phòng với mã 6 chữ số
+- Mờ bạn bè vào bằng mã phòng
+- Realtime sync qua Supabase Realtime
+- Chủ phòng có quyền điều khiển (bắt đầu game, kick member)
+
+### 2. AI Game Master (Tầng 1)
+- Tự động sinh vụ án dựa trên môn học (Toán/Lý/Hóa/Sinh)
+- 3 cấp độ: Dễ (lớp 6-8), Trung bình (lớp 9-10), Khó (lớp 11-12)
+- Lờ khai chứa lỗi sai kiến thức thật
+- Đáp án ẩn với từ khóa cốt lõi
+
+### 3. AI Suspect (Tầng 2)
+- Nhập vai hung thủ với tính cách ngoan cố
+- Phản ứng thông minh với câu hỏi
+- Chỉ nhận tội khi phát hiện đúng từ khóa
+- Giọng điệu học sinh, tự nhiên
+
+### 4. Gacha System
+- **AI Image Generation**: Mỗi nhân vật là ảnh chibi anime duy nhất
+- **Rarity Tiers**: SSR (3%), SR (15%), R (35%), N (47%)
+- **Collection**: Xem toàn bộ nhân vật đã sở hữu
+- **Equip System**: Đổi avatar profile
+- **Admin Mode**: Unlimited tickets cho email admin
+
+### 5. Authentication
+- Đăng nhập/Đăng ký qua Supabase Auth
+- Profile với username, avatar
+- Bảo mật JWT token
+
+---
+
+## 🎨 Tầm Nhìn Sản Phẩm
 
 > Module "Gamification" đột phá cho các nền tảng **Adaptive Learning**
 
@@ -159,32 +309,65 @@ src/
 - **Co-op thúc đẩy teamwork** — nhóm phải thảo luận, phân tích cùng nhau
 - **Gacha & Leaderboard** — tạo vòng lặp động lực dài hạn (retention)
 - **Vô hạn nội dung** — AI Game Master sinh án mới mỗi ván, không bao giờ lặp lại
+- **NFT-ready** — Mỗi nhân vật Gacha là unique AI-generated artwork
+
+---
+
+## 📝 API Documentation
+
+### Cases API
+```
+POST /api/cases/generate
+Body: { difficulty: "easy" | "medium" | "hard", roomCode: string }
+Response: { boi_canh, ten_hung_thu, loi_khai, kien_thuc_an }
+```
+
+### Chat API
+```
+POST /api/chat
+Body: { roomCode: string, messages: Array<{role, content}> }
+Response: { response: string }
+```
+
+### Gacha API
+```
+GET  /api/gacha/characters          # Danh sách tất cả nhân vật
+GET  /api/gacha/my-collection       # Bộ sưu tập của user (auth)
+GET  /api/gacha/tickets             # Số vé còn lại (auth)
+POST /api/gacha/roll                # Quay Gacha (auth)
+POST /api/gacha/generate            # Generate nhân vật mới (auth)
+POST /api/gacha/equip               # Trang bị nhân vật (auth)
+GET  /api/gacha/history             # Lịch sử quay (auth)
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork repository
+2. Tạo branch mới: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Mở Pull Request
 
 ---
 
 ## 📄 License
 
 Private — All rights reserved.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## 🙏 Acknowledgments
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Gemini AI** (Google) — LLM & Image Generation
+- **Supabase** — Database & Authentication
+- **shadcn/ui** — UI Components
+- **Framer Motion** — Animations
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+<p align="center">
+  <strong>🔍 Hồ Sơ Mật: AI Ngoại Phạm</strong><br>
+  <em>Học mà chơi, chơi mà học!</em>
+</p>
