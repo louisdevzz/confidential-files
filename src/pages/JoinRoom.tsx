@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Shield, Users, Search, Clock, FlaskConical, Calculator, Zap, Leaf } from "lucide-react";
+import { ArrowRight, Shield, Users, Search, Clock, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { fetchWaitingRooms, joinRoom } from "@/lib/roomService";
+import type { Room } from "@/lib/database.types";
 
 const subjectIcons: Record<string, string> = {
   math: "🧮",
@@ -16,36 +19,36 @@ const diffLabels: Record<string, { label: string; color: string }> = {
   hard: { label: "Khó", color: "text-primary" },
 };
 
-// Mock available rooms
-const mockRooms = [
-  { code: "ABC123", host: "Sherlock", players: 2, max: 4, subjects: ["chemistry", "physics"], difficulty: "medium" },
-  { code: "XYZ789", host: "Conan", players: 1, max: 3, subjects: ["math"], difficulty: "easy" },
-  { code: "QWE456", host: "Holmes", players: 3, max: 5, subjects: ["biology", "chemistry"], difficulty: "hard" },
-];
-
 const JoinRoom = () => {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   const [roomCode, setRoomCode] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [nickname, setNickname] = useState(profile?.username ?? "");
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [joiningCode, setJoiningCode] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    fetchWaitingRooms().then((data) => { setRooms(data); setLoadingRooms(false); });
+  }, []);
+
+  const handleJoin = async (code: string) => {
+    if (!user) { navigate("/"); return; }
+    setJoiningCode(code);
+    setErrorMsg("");
+    const { room, error } = await joinRoom({ code, userId: user.id, nickname: nickname.trim() });
+    setJoiningCode(null);
+    if (error) { setErrorMsg(error); return; }
+    navigate(`/lobby/${room!.code}`);
+  };
 
   const handleJoinByCode = () => {
-    if (roomCode.trim() && nickname.trim()) {
-      navigate(`/lobby/${roomCode.toUpperCase()}`);
-    }
+    if (roomCode.trim() && nickname.trim()) handleJoin(roomCode.trim());
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="p-4 flex items-center gap-4">
-        <button
-          onClick={() => navigate("/")}
-          className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 font-body"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Quay lại
-        </button>
-      </header>
 
       <main className="flex-1 px-4 py-8 max-w-2xl mx-auto w-full">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -83,15 +86,15 @@ const JoinRoom = () => {
               />
               <button
                 onClick={handleJoinByCode}
-                disabled={!roomCode.trim() || !nickname.trim()}
+                disabled={!roomCode.trim() || !nickname.trim() || !!joiningCode}
                 className={`px-6 py-3 rounded-xl font-display text-lg flex items-center gap-2 transition-all ${
-                  roomCode.trim() && nickname.trim()
+                  roomCode.trim() && nickname.trim() && !joiningCode
                     ? "bg-danger-gradient text-foreground shadow-red hover:scale-[1.02]"
                     : "bg-muted text-muted-foreground cursor-not-allowed"
                 }`}
               >
+                {joiningCode === roomCode ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                 VÀO
-                <ArrowRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -103,54 +106,68 @@ const JoinRoom = () => {
               PHÒNG ĐANG CHỜ
             </h2>
 
-            <div className="space-y-3">
-              {mockRooms.map((room, i) => (
-                <motion.div
-                  key={room.code}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="bg-card mystery-border rounded-xl p-4 flex items-center justify-between hover:shadow-neon transition-shadow group"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-display text-lg text-foreground">{room.code}</span>
-                      <span className="text-muted-foreground font-body text-sm">bởi {room.host}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-muted-foreground font-body flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
-                        {room.players}/{room.max}
-                      </span>
-                      <span className="flex gap-1">
-                        {room.subjects.map((s) => (
-                          <span key={s} title={s}>{subjectIcons[s]}</span>
-                        ))}
-                      </span>
-                      <span className={`font-body font-bold text-xs ${diffLabels[room.difficulty].color}`}>
-                        {diffLabels[room.difficulty].label}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => nickname.trim() && navigate(`/lobby/${room.code}`)}
-                    disabled={!nickname.trim()}
-                    className={`px-5 py-2 rounded-lg font-display text-sm transition-all ${
-                      nickname.trim()
-                        ? "bg-secondary/30 mystery-border text-secondary hover:bg-secondary/50"
-                        : "bg-muted text-muted-foreground cursor-not-allowed"
-                    }`}
-                  >
-                    THAM GIA
-                  </button>
-                </motion.div>
-              ))}
-            </div>
+            {errorMsg && (
+              <p className="text-primary text-sm font-body mb-3">{errorMsg}</p>
+            )}
 
-            {mockRooms.length === 0 && (
-              <div className="text-center text-muted-foreground font-body py-12">
-                <Clock className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                Chưa có phòng nào đang chờ...
+            {loadingRooms ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rooms.map((room, i) => (
+                  <motion.div
+                    key={room.code}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="bg-card mystery-border rounded-xl p-4 flex items-center justify-between hover:shadow-neon transition-shadow group"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-display text-lg text-foreground">{room.code}</span>
+                        <span className="text-muted-foreground font-body text-sm">
+                          bởi {room.host?.username ?? "Ẩn danh"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-muted-foreground font-body flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {room.member_count ?? 0}/{room.max_players}
+                        </span>
+                        <span className="flex gap-1">
+                          {room.subjects.map((s) => (
+                            <span key={s} title={s}>{subjectIcons[s]}</span>
+                          ))}
+                        </span>
+                        <span className={`font-body font-bold text-xs ${diffLabels[room.difficulty].color}`}>
+                          {diffLabels[room.difficulty].label}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleJoin(room.code)}
+                      disabled={!nickname.trim() || !!joiningCode}
+                      className={`px-5 py-2 rounded-lg font-display text-sm transition-all ${
+                        nickname.trim() && !joiningCode
+                          ? "bg-secondary/30 mystery-border text-secondary hover:bg-secondary/50"
+                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                      }`}
+                    >
+                      {joiningCode === room.code ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : "THAM GIA"}
+                    </button>
+                  </motion.div>
+                ))}
+
+                {rooms.length === 0 && (
+                  <div className="text-center text-muted-foreground font-body py-12">
+                    <Clock className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                    Chưa có phòng nào đang chờ...
+                  </div>
+                )}
               </div>
             )}
           </div>
