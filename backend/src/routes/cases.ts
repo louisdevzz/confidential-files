@@ -2,7 +2,6 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { readFile } from 'node:fs/promises';
 import { supabase } from '../lib/supabase.js';
 import { GeminiService } from '../services/geminiService.js';
-import { BraveSearchService } from '../services/braveSearchService.js';
 import { caseMemoryStore } from '../services/caseMemoryStore.js';
 import type { ChatResponse, FullGeneratedCase, GenerateCaseRequest } from '../types/index.js';
 
@@ -204,6 +203,10 @@ const hasUnsafeTheme = (value: string): boolean => {
   return /(giết|thi thể|máu me|bom|khủng bố|ma túy|chém|đâm)/i.test(value);
 };
 
+const hasWitnessObservation = (value: string): boolean => {
+  return /(thấy|minh cầm|nhìn thấy|trực nhật thấy|bạn .* thấy|tận mắt)/i.test(value);
+};
+
 const isGenericNarrative = (value: string): boolean => {
   const genericPatterns = [
     /xảy ra một sự cố nhỏ/i,
@@ -219,6 +222,16 @@ const isGenericNarrative = (value: string): boolean => {
   return genericPatterns.some((pattern) => pattern.test(value));
 };
 
+const soundsArtificialTestimony = (value: string): boolean => {
+  return [
+    /mình không làm gì sai cả/i,
+    /nên không thể kết luận do mình/i,
+    /nếu có sai thì chắc là do nhầm lẫn/i,
+    /theo kiến thức/i,
+    /hiện tượng đó là bình thường/i,
+  ].some((pattern) => pattern.test(value));
+};
+
 const isCaseTooGeneric = (candidate: FullGeneratedCase): boolean => {
   const combined = [
     candidate.boi_canh,
@@ -230,8 +243,9 @@ const isCaseTooGeneric = (candidate: FullGeneratedCase): boolean => {
   return (
     isGenericNarrative(candidate.boi_canh) ||
     isGenericNarrative(candidate.loi_khai) ||
+    soundsArtificialTestimony(candidate.loi_khai) ||
     candidate.ten_hung_thu.trim().toLowerCase() === 'một bạn học trong lớp' ||
-    combined.length < 280
+    combined.length < 320
   );
 };
 
@@ -296,6 +310,12 @@ const evaluateCaseQuality = (candidate: FullGeneratedCase): { score: number; rea
     reasons.push('Nội dung đang quá bạo lực, chưa phù hợp bối cảnh học sinh.');
   }
 
+  if (hasWitnessObservation(candidate.boi_canh)) {
+    score += 10;
+  } else {
+    reasons.push('Thiếu nhân chứng hoặc quan sát trực tiếp khiến vụ án kém tự nhiên.');
+  }
+
   if (!isCaseTooGeneric(candidate)) {
     score += 10;
   } else {
@@ -305,17 +325,47 @@ const evaluateCaseQuality = (candidate: FullGeneratedCase): { score: number; rea
   return { score, reasons };
 };
 
+const rewriteCaseForNaturalTone = async (
+  candidate: FullGeneratedCase,
+  subjectLabel: string
+): Promise<FullGeneratedCase> => {
+  const rewritePrompt =
+    `Hãy viết lại JSON dưới đây cho tự nhiên hơn, vẫn giữ nguyên logic vụ án, nghi phạm, kiến thức sai và kết luận.\n` +
+    `Mục tiêu:\n` +
+    `- Giọng kể phải giống học sinh kể chuyện thật.\n` +
+    `- Lời khai phải giống học sinh chống chế thật.\n` +
+    `- Không dùng câu sáo rỗng, không văn mẫu, không giọng sách giáo khoa.\n` +
+    `- Không đổi đáp án suy luận.\n` +
+    `- Không thêm markdown, chỉ trả JSON đúng schema cũ.\n\n` +
+    `Đặc biệt với môn ${subjectLabel}:\n` +
+    `- Lỗi kiến thức phải được nói theo kiểu đời thường, không được lộ như đang giải bài.\n\n` +
+    `JSON gốc:\n${JSON.stringify(candidate)}`;
+
+  const rewritten = await withTimeout<ChatResponse | null>(
+    geminiService.chat({
+      messages: [{ role: 'user', content: rewritePrompt }],
+      temperature: 0.4,
+      maxTokens: 1200,
+      responseMimeType: 'application/json',
+    }),
+    3500,
+    null
+  );
+
+  return tryParseCaseJson(rewritten?.content ?? '') ?? candidate;
+};
+
 const buildEmergencyCase = (subject: string, subjectLabel: string, difficultyLabel: string): FullGeneratedCase => {
   const bySubject: Record<string, FullGeneratedCase> = {
     math: {
       boi_canh:
-        `Sáng nay trước tiết ${subjectLabel}, lớp em góp tiền quỹ để in tài liệu ôn tập. Bạn lớp phó học tập để tiền trong phong bì ở ngăn bàn giáo viên lúc 7h15, khi đó cả nhóm trực nhật đều nhìn thấy. Đến khoảng 7h40, trước khi cô vào lớp, bạn ấy mở phong bì ra thì thấy thiếu đúng 200.000 đồng. Minh nói lúc đó chỉ lên bàn giáo viên để mượn máy tính cầm tay kiểm tra lại phép chia tiền, nhưng trên tờ giấy nháp cạnh phong bì lại có phép tính chia sai số tiền còn lại theo đầu người.`,
+        `Sáng nay trước tiết ${subjectLabel}, lớp em góp tiền quỹ để in bộ đề cương ôn tập. Khoảng 7 giờ 15, bạn thủ quỹ đếm tiền xong rồi bỏ vào phong bì, cất trong ngăn bàn giáo viên vì lúc đó cô chưa vào lớp. Đến gần 7 giờ 40, khi bạn ấy lấy phong bì ra để ghi lại tổng tiền lần cuối thì phát hiện thiếu đúng 200.000 đồng. Từ lúc cất phong bì đến lúc mở ra, chỉ có vài bạn đi lại gần bàn giáo viên, và bạn trực nhật nói đã thấy Minh cầm phong bì lên xem chứ không chỉ lấy máy tính như Minh nói. Minh lại là người phụ trách chốt danh sách đóng tiền nên việc bạn ấy chạm vào phong bì nghe qua khá dễ tin.`,
       ten_hung_thu: 'Minh, lớp phó học tập',
       loi_khai:
-        `Mình chỉ cầm phong bì lên để xem tổng tiền đã đủ chưa thôi. Nếu thiếu 200.000 đồng thì chắc mọi người cộng nhầm từ đầu, vì chia tiền kiểu đó rất dễ lệch. Với lại lúc mình nhìn, số tiền còn lại vẫn chia hết cho 8 bạn nên không thể bảo là mình lấy. Theo mình, chỉ cần tổng sau cùng vẫn chia đều thì chứng tỏ không mất khoản nào cả. Mọi người đang nghi oan vì thấy mình đứng gần bàn giáo viên thôi.`,
+        `Mình có cầm phong bì lên thật, nhưng chỉ để xem lớp đã thu đến đâu rồi còn báo lại cho cô. Lúc đó trên bàn giáo viên để lẫn máy tính, sổ đầu bài với phong bì nên mình tiện tay cầm lên rồi đặt xuống thôi. Với lại sáng nay lớp đóng tiền khá lộn xộn, nhiều bạn đưa tiền sát giờ vào học nên đếm nhầm cũng bình thường. Theo mình, chỉ cần số tiền còn lại vẫn chia đều cho số bộ đề phải in thì chưa thể nói là có người lấy bớt. Mọi người chỉ thấy mình đứng gần đó nên nghi mình trước thôi.`,
       kien_thuc_an:
-        `Lỗi sai nằm ở câu “chỉ cần tổng sau cùng vẫn chia đều thì chứng tỏ không mất khoản nào cả”. Một số tiền vẫn chia hết cho 8 không có nghĩa là nó chưa bị rút bớt, vì có rất nhiều giá trị khác nhau cùng chia hết cho 8. Tờ giấy nháp bên cạnh phong bì ghi phép chia theo số tiền còn lại sau khi đã bị bớt đi 200.000 đồng, chứng tỏ người viết đã nhìn thấy số tiền sau khi thiếu. Vì Minh là người thừa nhận đã cầm phong bì và còn để lại phép tính liên quan trực tiếp đến số tiền còn lại, lời khai của bạn ấy tự mâu thuẫn.`,
-      tu_khoa_thang_cuoc: ['chia hết không suy ra đủ tiền', 'giấy nháp', '200000 đồng', 'mâu thuẫn phép chia'],
+        `Lỗi sai nằm ở câu “chỉ cần số tiền còn lại vẫn chia đều cho số bộ đề phải in thì chưa thể nói là có người lấy bớt”. Một số tiền chia hết cho số bộ đề không chứng minh rằng nó là số tiền ban đầu, vì nhiều giá trị khác nhau vẫn có thể cùng chia đều. Nhân chứng đã thấy Minh cầm phong bì trên tay, tức là Minh không chỉ “lấy máy tính” như lời khai. Vì vậy, lời giải thích của Minh vừa sai về suy luận toán học vừa mâu thuẫn với quan sát thực tế.`,
+      tu_khoa_thang_cuoc: ['chia đều không chứng minh đủ', 'nhân chứng', 'phong bì tiền', 'mâu thuẫn lời khai'],
     },
     physics: {
       boi_canh:
@@ -425,13 +475,16 @@ router.post('/generate', async (req, res) => {
       `${scenarioSeeds[validSubject] ?? ''}\n\n` +
       `TRẢ VỀ CHÍNH XÁC JSON (không markdown, không text ngoài JSON):\n` +
       `{\n` +
-      `  "boi_canh": "4-5 câu, ngôi tôi, phải có: 1 đồ vật cụ thể, 2 mốc thời gian cụ thể, 1 hành động đáng ngờ của nghi phạm, 1 lý do nghi ngờ rõ ràng",\n` +
-      `  "ten_hung_thu": "Tên riêng học sinh + 1 nét nhận diện đời thường, ví dụ: Minh, lớp phó học tập",\n` +
-      `  "loi_khai": "4-6 câu nói tự nhiên như học sinh, KHÔNG được chung chung kiểu 'Mình không làm gì sai cả', phải viện dẫn 1 lập luận kiến thức sai",\n` +
-      `  "kien_thuc_an": "Chỉ rõ câu sai nào trong lời khai, kiến thức đúng là gì, vật chứng nào bác bỏ lời khai",\n` +
+      `  "boi_canh": "4-5 câu, ngôi tôi, phải giống chuyện thật trong lớp học. BẮT BUỘC có: 1 đồ vật cụ thể, 2 mốc thời gian, 1 người tận mắt thấy hành động đáng ngờ. KHÔNG dùng các câu sáo rỗng như 'xảy ra sự cố', 'dấu vết bất thường', 'điểm mâu thuẫn rõ ràng'.",\n` +
+      `  "ten_hung_thu": "Tên riêng học sinh + vai trò ngắn gọn, ví dụ: Minh, lớp phó học tập",\n` +
+      `  "loi_khai": "4-5 câu, giọng học sinh thật, có chống chế tự nhiên, có đổ cho hiểu lầm/đếm nhầm/nhìn nhầm. Không được mở đầu bằng kiểu 'Mình không làm gì sai cả'. Phải chứa đúng 1 lỗi kiến thức môn học nhưng được nói kiểu đời thường.",\n` +
+      `  "kien_thuc_an": "Chỉ rõ câu nào sai, kiến thức đúng là gì, và vật chứng/quan sát nào bác lại lời khai",\n` +
       `  "tu_khoa_thang_cuoc": ["3-5 từ khóa ngắn, bám sát mấu chốt suy luận"]\n` +
       `}\n\n` +
-      `CẤM dùng các câu sáo rỗng như: "xảy ra một sự cố nhỏ", "mọi thứ vẫn bình thường", "xuất hiện dấu vết bất thường", "có một điểm mâu thuẫn rõ ràng".`;
+      `LUẬT BỔ SUNG:\n` +
+      `- Bối cảnh phải có 1 nhân chứng nhìn thấy hành động cụ thể, không dùng manh mối gượng ép như 'tờ giấy nháp ghi sẵn phép tính' trừ khi nó rất tự nhiên.\n` +
+      `- Lời khai phải nghe như học sinh đang cãi thật, không được giống đang giảng bài.\n` +
+      `- Nghi phạm phải có lý do hợp lý để chạm vào đồ vật hoặc xuất hiện ở hiện trường.\n`;
 
     const geminiResponse = await withTimeout<ChatResponse | null>(
       geminiService.chat({
@@ -500,6 +553,10 @@ router.post('/generate', async (req, res) => {
 
     if (!fullCase || isCaseTooGeneric(fullCase)) {
       fullCase = buildEmergencyCase(validSubject, subjectLabel, difficultyLabel);
+    }
+
+    if (fullCase && !isCaseTooGeneric(fullCase)) {
+      fullCase = await rewriteCaseForNaturalTone(fullCase, subjectLabel);
     }
 
     let quality = evaluateCaseQuality(fullCase);
