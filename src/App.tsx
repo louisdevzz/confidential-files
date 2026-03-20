@@ -12,7 +12,6 @@ import Lobby from "./pages/Lobby.tsx";
 import RoomList from "./pages/RoomList.tsx";
 import Ranking from "./pages/Ranking.tsx";
 import Game from "./pages/Game.tsx";
-import Gacha from "./pages/Gacha.tsx";
 import Profile from "./pages/Profile.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -32,7 +31,6 @@ const App = () => (
             <Route path="/join" element={<JoinRoom />} />
             <Route path="/rooms" element={<RoomList />} />
             <Route path="/ranking" element={<Ranking />} />
-            <Route path="/gacha" element={<Gacha />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/lobby/:code" element={<Lobby />} />
             <Route path="/game/:code" element={<Game />} />

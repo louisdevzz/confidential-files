@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Crown, Ticket, Target, Loader2 } from "lucide-react";
+import { Trophy, Crown, Target, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchRanking } from "@/lib/roomService";
 import type { Profile } from "@/lib/database.types";
@@ -50,10 +50,7 @@ const Ranking = () => {
               </div>
               <div className="flex items-center gap-4 text-sm font-body">
                 <span className="text-foreground font-bold">{players[myRank - 1]?.total_wins} thắng</span>
-                <span className="text-accent flex items-center gap-1">
-                  <Ticket className="w-4 h-4" />
-                  {players[myRank - 1]?.gacha_tickets}
-                </span>
+                <span className="text-muted-foreground">{players[myRank - 1]?.total_games} ván</span>
               </div>
             </motion.div>
           )}
@@ -149,9 +146,9 @@ const Ranking = () => {
                         <span className="font-display text-lg text-foreground">{p.total_wins}</span>
                         <span className="text-muted-foreground font-body text-xs block">thắng</span>
                       </div>
-                      <div className="flex items-center gap-1 text-accent font-body text-sm font-bold">
-                        <Ticket className="w-4 h-4" />
-                        {p.gacha_tickets}
+                      <div className="text-right">
+                        <span className="font-body text-sm font-bold text-muted-foreground">{p.total_games}</span>
+                        <span className="text-muted-foreground font-body text-xs block">ván</span>
                       </div>
                     </div>
                   </motion.div>

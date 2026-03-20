@@ -119,23 +119,20 @@ const Game = () => {
       if (user?.id && isCurrentUser) {
         const { data: p } = await supabase
           .from("profiles")
-          .select("total_wins, total_games, gacha_tickets")
+          .select("total_wins, total_games")
           .eq("id", user.id)
           .single();
         if (p) {
           await supabase.from("profiles").update({
             total_wins: (p.total_wins ?? 0) + 1,
             total_games: (p.total_games ?? 0) + 1,
-            gacha_tickets: (p.gacha_tickets ?? 0) + 3,
           }).eq("id", user.id);
         }
       } else if (user?.id) {
-        // Other players get 1 gacha ticket for co-op participation
-        const { data: p } = await supabase.from("profiles").select("total_games, gacha_tickets").eq("id", user.id).single();
+        const { data: p } = await supabase.from("profiles").select("total_games").eq("id", user.id).single();
         if (p) {
           await supabase.from("profiles").update({
             total_games: (p.total_games ?? 0) + 1,
-            gacha_tickets: (p.gacha_tickets ?? 0) + 1,
           }).eq("id", user.id);
         }
       }
@@ -262,7 +259,7 @@ const Game = () => {
               <div className="flex items-center justify-center gap-2 mb-5">
                 <Trophy className="w-4 h-4 text-accent" />
                 <span className="font-body text-sm text-accent">
-                  {mvp === myNickname ? "+1 chiến thắng · +3 vé gacha" : "+1 game · +1 vé gacha (đồng đội)"}
+                  {mvp === myNickname ? "+1 chiến thắng · +1 ván" : "+1 ván (đồng đội)"}
                 </span>
               </div>
               <div className="flex gap-3">

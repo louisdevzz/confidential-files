@@ -10,7 +10,6 @@ create table if not exists profiles (
   avatar_url text,
   total_wins int not null default 0,
   total_games int not null default 0,
-  gacha_tickets int not null default 0,
   created_at timestamp with time zone default now()
 );
 

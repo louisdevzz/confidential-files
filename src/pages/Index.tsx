@@ -34,7 +34,7 @@ const HeroSection = ({ onNavigate }: { onNavigate: (path: string) => void }) => 
           AI NGOẠI PHẠM
         </h2>
         <p className="text-muted-foreground font-body text-lg md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
-          Lập tổ đội, hỏi cung AI, dùng kiến thức khoa học để bẻ gãy lập luận dối trá. Ép hung thủ nhận tội, cày điểm quay Gacha!
+          Lập tổ đội, hỏi cung AI, dùng kiến thức khoa học để bẻ gãy lập luận dối trá và ép hung thủ nhận tội.
         </p>
       </motion.div>
 
@@ -99,7 +99,7 @@ const steps = [
   {
     icon: <Trophy className="w-8 h-8" />,
     title: "CHỐT HẠ",
-    desc: "Tìm ra chân lý, ép AI nhận tội! MVP nhận vé Gacha & flex bảng xếp hạng",
+    desc: "Tìm ra chân lý, ép AI nhận tội! MVP được ghi nhận trên bảng xếp hạng",
     color: "text-accent",
   },
 ];
@@ -146,15 +146,15 @@ const CharactersSection = () => (
         className="flex-1"
       >
         <h2 className="text-4xl md:text-5xl font-display text-foreground text-glow-gold mb-6">
-          🎴 GACHA & THẺ NHÂN VẬT
+          🤝 PHÁ ÁN CÙNG ĐỒNG ĐỘI
         </h2>
         <p className="text-muted-foreground font-body text-lg leading-relaxed mb-6">
-          Thu thập thẻ nhân vật SSR, SR từ hệ thống Gacha. Flex khung Avatar độc quyền trên bảng xếp hạng. Dùng đạo cụ đặc biệt để "chơi dơ" bạn bè ở ván sau!
+          Phân vai người hỏi, người phản biện, người chốt hạ để bóc tách lời khai sai của nghi phạm AI. Càng phối hợp tốt, đội càng phá án nhanh và leo hạng cao hơn.
         </p>
         <div className="flex gap-3">
-          {["SSR", "SR", "R"].map((rarity, i) => (
+          {["Hợp tác", "Phản biện", "Chốt hạ"].map((item, i) => (
             <span
-              key={rarity}
+              key={item}
               className={`px-4 py-2 rounded-lg font-display text-sm ${
                 i === 0
                   ? "bg-gold-gradient text-accent-foreground shadow-gold"
@@ -163,7 +163,7 @@ const CharactersSection = () => (
                   : "bg-muted text-muted-foreground"
               }`}
             >
-              {rarity}
+              {item}
             </span>
           ))}
         </div>

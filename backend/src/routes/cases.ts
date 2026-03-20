@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { GeminiService } from '../services/geminiService.js';
+import { BraveSearchService } from '../services/braveSearchService.js';
 import type { FullGeneratedCase, GenerateCaseRequest } from '../types/index.js';
 
 const router = Router();
 const geminiService = new GeminiService();
+const braveSearch = new BraveSearchService();
 
-const SUBJECTS = ['math', 'physics', 'chemistry', 'biology'] as const;
+const VALID_SUBJECTS = ['math', 'physics', 'chemistry', 'biology'] as const;
 
 const SUBJECT_LABELS: Record<string, string> = {
   math: 'Toán Học',
@@ -21,46 +23,55 @@ const DIFFICULTY_LABELS: Record<string, string> = {
   hard: 'lớp 11–12, kiến thức nâng cao',
 };
 
-function getRandomSubject(): string {
-  const randomIndex = Math.floor(Math.random() * SUBJECTS.length);
-  return SUBJECTS[randomIndex];
-}
-
 router.post('/generate', async (req, res) => {
   try {
-    const { difficulty, roomCode } = req.body as GenerateCaseRequest;
+    const { subject, difficulty, roomCode } = req.body as GenerateCaseRequest;
 
     if (!difficulty || !roomCode) {
       return res.status(400).json({ error: 'difficulty và roomCode là bắt buộc' });
     }
 
-    // Tự động random chọn môn học
-    const subject = getRandomSubject();
-    const subjectLabel = SUBJECT_LABELS[subject];
+    // Validate subject — fallback to random if not provided
+    const validSubject = (VALID_SUBJECTS as readonly string[]).includes(subject)
+      ? subject
+      : VALID_SUBJECTS[Math.floor(Math.random() * VALID_SUBJECTS.length)];
+    const subjectLabel = SUBJECT_LABELS[validSubject];
     const difficultyLabel = DIFFICULTY_LABELS[difficulty] ?? difficulty;
 
+    // Search for real knowledge context to make scenarios more realistic
+    const knowledgeContext = await braveSearch.getKnowledgeContext(validSubject, subjectLabel, difficultyLabel);
+
+    const subjectExamples: Record<string, string> = {
+      math: 'Ví dụ lỗi sai: nhầm công thức diện tích, tính sai tỉ lệ phần trăm, nhầm đơn vị đo, sai phép tính xác suất...',
+      physics: 'Ví dụ lỗi sai: nhầm hướng lực, sai công thức vận tốc/gia tốc, hiểu sai nguyên lý áp suất, nhầm về truyền nhiệt...',
+      chemistry: 'Ví dụ lỗi sai: nhầm phản ứng hóa học, sai về tính chất axit-bazơ, nhầm trạng thái chất, hiểu sai về nồng độ dung dịch...',
+      biology: 'Ví dụ lỗi sai: nhầm về quang hợp/hô hấp, sai về hệ tuần hoàn, hiểu sai di truyền, nhầm về hệ sinh thái...',
+    };
+
     const prompt =
-      `Bạn là một "thám tử học đường" cấp 3, sử dụng phương pháp quan sát và suy luận của Sherlock Holmes nhưng trong bối cảnh trường học bình dị.\n\n` +
-      `Nhiệm vụ: Hãy TỰ SÁNG TẠO ra MỘT tình huống bí ẩn xảy ra trong trường học (lớp học, thư viện, phòng lab, căn tin...). Tình huống phải thực tế, gần gũi với đờ sống học sinh.\n\n` +
-      `PHONG CÁCH VIẾT (Quan trọng nhất):\n` +
-      `1. Tự nhiên như kể chuyện: Viết như đang tâm sự với bạn cùng lớp, dùng ngôi thứ nhất ("Tôi").\n` +
-      `2. Quan sát tỉ mỉ nhưng đơn giản: Chú ý những chi tiết nhỏ bình thường - vết bẩn trên quần áo, giấy tờ để lung tung, mùi lạ trong không khí... Không dùng thiết bị khoa học phức tạp.\n` +
-      `3. Suy luận logic từ thực tế: Từ những dấu hiệu bình dị, suy ra điều bất thường. Ví dụ: "Chiếc ghế bị xô lệch chứng tỏ ai đó vừa đứng dậy vội vàng", "Vết mực còn ướt trên tay nghĩa là vừa viết xong".\n` +
-      `4. Tình huống độc đáo: Không dùng mô-típ cũ (mất bánh kem, heo đất). Hãy nghĩ tình huống mới: bài kiểm tra bị làm rơi, đồ dùng học tập biến mất kỳ lạ, thí nghiệm có kết quả bất thường...\n` +
-      `5. Tuyệt đối KHÔNG dùng: tia laser, hồng ngoại, thiết bị điện tử phức tạp, từ ngữ khoa học máy móc. Chỉ dùng quan sát bằng mắt thường và suy luận logic.\n\n` +
-      `LỜI KHAI CỦA NGHI PHẠM:\n` +
-      `- Nghi phạm là bạn học thông minh, tự tin, đưa ra lập luận nghe có vẻ logic.\n` +
-      `- NHƯNG trong lập luận đó có chứa một lỗi sai về kiến thức ${subjectLabel} (${difficultyLabel}).\n` +
-      `- Lỗi sai này không quá hiển nhiên, cần hiểu biết ${subjectLabel} mới phát hiện được.\n\n` +
+      `Bạn là "thám tử học đường", tạo tình huống bí ẩn trong trường học liên quan đến môn ${subjectLabel}.\n\n` +
+      `MÔN HỌC: ${subjectLabel} (${difficultyLabel})\n` +
+      `${subjectExamples[validSubject] ?? ''}\n\n` +
+      `NGUYÊN TẮC TẠO TÌNH HUỐNG:\n` +
+      `- Bối cảnh NGẮN GỌN (3-4 câu), đi thẳng vào vấn đề\n` +
+      `- Tình huống PHẢI liên quan tự nhiên đến kiến thức ${subjectLabel} (ví dụ: thí nghiệm hỏng, tính toán sai, hiện tượng bất thường mà cần kiến thức ${subjectLabel} để giải thích)\n` +
+      `- KHÔNG gượng ép nhét kiến thức vào — tình huống phải xảy ra tự nhiên trong đời sống học sinh\n` +
+      `- Quan sát bằng mắt thường, logic thường ngày. KHÔNG dùng thiết bị khoa học phức tạp\n\n` +
+      `NGHI PHẠM:\n` +
+      `- Là bạn học BÌNH THƯỜNG với nét riêng đời thường (đeo tai nghe, tóc nhuộm, hay vẽ bậy...)\n` +
+      `- KHÔNG dùng kiểu "học bá", "lớp trưởng", "giỏi môn X". Chỉ là người bình thường.\n` +
+      `- Nghi phạm đưa lập luận tự tin, nghe hợp lý, NHƯNG chứa MỘT lỗi sai kiến thức ${subjectLabel}\n` +
+      `- Lỗi sai phải cụ thể, dựa trên hiểu lầm thực tế mà học sinh thường mắc phải\n` +
+      (knowledgeContext ? `\n${knowledgeContext}\n` : '\n') +
       `Trả về JSON:\n` +
       `{\n` +
-      `  "boi_canh": "4-6 câu kể lại tình huống. Tự nhiên, có chi tiết quan sát thực tế, dẫn đến việc phát hiện nghi phạm. Không dùng từ khoa học khô khan.",\n` +
-      `  "ten_hung_thu": "Tên bạn học và đặc điểm nhận dạng (vd: Minh - lớp trưởng hay ngồi góc lớp, Hương - bạn giỏi Hóa)",\n` +
-      `  "loi_khai": "Lờ biện minh tự tin của nghi phạm. Nghe logic nhưng chứa lỗi kiến thức ${subjectLabel}. Giọng điệu tự nhiên như học sinh nói chuyện.",\n` +
-      `  "kien_thuc_an": "Giải thích đúng bằng kiến thức ${subjectLabel}, chỉ ra lỗi sai trong lờ khai một cách rõ ràng.",\n` +
+      `  "boi_canh": "3-4 câu ngắn gọn. Kể chuyện gì xảy ra, tại sao nghi ngờ. Ngôi thứ nhất, tự nhiên.",\n` +
+      `  "ten_hung_thu": "Tên + nét riêng đời thường (vd: 'Minh - hay đeo kính gọng đen, ngồi bàn cuối')",\n` +
+      `  "loi_khai": "Lời biện minh tự tin, chứa lỗi sai kiến thức ${subjectLabel} cụ thể. Giọng tự nhiên.",\n` +
+      `  "kien_thuc_an": "Chỉ ra lỗi sai cụ thể + giải thích đúng bằng kiến thức ${subjectLabel}.",\n` +
       `  "tu_khoa_thang_cuoc": ["từ khóa 1", "từ khóa 2"]\n` +
       `}\n\n` +
-      `QUAN TRỌNG: Viết như học sinh kể chuyện cho bạn nghe. Tự nhiên, logic, không gượng ép, không dùng thiết bị khoa học phức tạp!`;
+      `QUAN TRỌNG: Tình huống phải HỢP LÝ và liên quan tự nhiên đến ${subjectLabel}. Lỗi sai phải là loại học sinh thường nhầm trong thực tế.`;
 
     const geminiResponse = await geminiService.chat({
       messages: [{ role: 'user', content: prompt }],

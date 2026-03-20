@@ -59,13 +59,10 @@ Thêm vào .env.local:
 
 // ── Đọc schema SQL ────────────────────────────────────────────────────────────
 const schemaPath = resolve(__dirname, "../supabase/schema.sql");
-const gachaSchemaPath = resolve(__dirname, "../supabase/gacha-schema.sql");
 
 let sql;
 try {
-  const mainSchema = readFileSync(schemaPath, "utf8");
-  const gachaSchema = readFileSync(gachaSchemaPath, "utf8");
-  sql = mainSchema + "\n\n" + gachaSchema;
+  sql = readFileSync(schemaPath, "utf8");
 } catch (err) {
   console.error(`❌  Không đọc được file schema: ${err.message}`);
   process.exit(1);
@@ -105,7 +102,6 @@ const client = new pg.Client({
 const statements = splitStatements(sql);
 console.log(`\n🚀  Kết nối PostgreSQL và đẩy schema...`);
 console.log(`📄  ${schemaPath}`);
-console.log(`📄  ${gachaSchemaPath}`);
 console.log(`📝  ${statements.length} statements\n`);
 
 let ok = 0;

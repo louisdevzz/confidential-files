@@ -1,9 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Copy, Users, Crown, Clock, Sparkles, Loader2, Play, Wand2 } from "lucide-react";
+import { Copy, Users, Crown, Clock, Sparkles, Loader2, Play, Wand2, LogOut } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchRoomWithMembers, startGame } from "@/lib/roomService";
+import { fetchRoomWithMembers, startGame, leaveRoom } from "@/lib/roomService";
 import { generateCase } from "@/lib/kimiClient";
 import { supabase } from "@/lib/supabase";
 import type { Room, RoomMember, Difficulty } from "@/lib/database.types";
@@ -20,6 +20,7 @@ const Lobby = () => {
   const [startingLabel, setStartingLabel] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  const [leaving, setLeaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!code) return;
@@ -35,6 +36,41 @@ const Lobby = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Cleanup: remove member when user closes tab or navigates away
+  useEffect(() => {
+    if (!code || !user?.id || !room?.id) return;
+    const roomId = room.id;
+    const userId = user.id;
+    // Cache auth token eagerly (beforeunload is sync, can't await)
+    let cachedToken = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.access_token) cachedToken = session.access_token;
+    });
+    const cleanup = () => {
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/room_members?room_id=eq.${roomId}&user_id=eq.${userId}`,
+        {
+          method: "DELETE",
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${cachedToken}`,
+            Prefer: "return=minimal",
+          },
+          keepalive: true,
+        }
+      );
+    };
+    window.addEventListener("beforeunload", cleanup);
+    return () => window.removeEventListener("beforeunload", cleanup);
+  }, [code, user?.id, room?.id]);
+
+  const handleLeave = async () => {
+    if (!code || !user?.id || leaving) return;
+    setLeaving(true);
+    await leaveRoom({ roomCode: code, userId: user.id });
+    navigate("/");
+  };
 
   // Real-time: watch room status (redirect all players when host starts)
   useEffect(() => {
@@ -213,6 +249,16 @@ const Lobby = () => {
                 Đang chờ host bắt đầu...
               </div>
             )}
+
+            {/* Leave button */}
+            <button
+              onClick={handleLeave}
+              disabled={leaving || starting}
+              className="w-full mt-3 flex items-center justify-center gap-2 bg-muted/30 border border-border rounded-xl px-4 py-3 font-body text-sm text-muted-foreground hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {leaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+              Rời phòng
+            </button>
 
             <p className="text-muted-foreground text-xs font-body mt-4">
               {isHost ? "Bạn có thể bắt đầu bất cứ lúc nào — không cần chờ đủ người 🔍" : "Chia sẻ mã phòng cho bạn bè để cùng tham gia 🔍"}

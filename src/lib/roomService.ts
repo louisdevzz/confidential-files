@@ -12,6 +12,7 @@ const generateRoomCode = (): string => {
 export interface CreateRoomParams {
   hostId: string;
   nickname: string;
+  subject: Subject;
   difficulty: Difficulty;
   maxPlayers: number;
 }
@@ -19,6 +20,7 @@ export interface CreateRoomParams {
 export const createRoom = async ({
   hostId,
   nickname,
+  subject,
   difficulty,
   maxPlayers,
 }: CreateRoomParams): Promise<{ roomCode: string; error: string | null }> => {
@@ -28,7 +30,7 @@ export const createRoom = async ({
 
     const { data: room, error: roomError } = await supabase
       .from("rooms")
-      .insert({ code, host_id: hostId, difficulty, max_players: maxPlayers, status: "waiting" })
+      .insert({ code, host_id: hostId, subjects: [subject], difficulty, max_players: maxPlayers, status: "waiting" })
       .select("id")
       .single();
 
@@ -129,6 +131,66 @@ export const fetchRoomWithMembers = async (
   return { room: data as unknown as Room, members, error: null };
 };
 
+// ── Leave room ──────────────────────────────────────────────────────────────────────
+
+export const leaveRoom = async ({
+  roomCode,
+  userId,
+}: {
+  roomCode: string;
+  userId: string;
+}): Promise<{ error: string | null }> => {
+  // Fetch room + membership info
+  const { data: room, error: roomErr } = await supabase
+    .from("rooms")
+    .select("id, host_id, status")
+    .eq("code", roomCode)
+    .single();
+
+  if (roomErr || !room) return { error: "Không tìm thấy phòng." };
+
+  // Don't allow leaving a game in progress
+  if (room.status === "playing") return { error: "Không thể rời phòng khi đang chơi." };
+
+  // Delete member record
+  const { error: delErr } = await supabase
+    .from("room_members")
+    .delete()
+    .eq("room_id", room.id)
+    .eq("user_id", userId);
+
+  if (delErr) return { error: delErr.message };
+
+  // If the leaving user is the host
+  if (room.host_id === userId) {
+    // Check remaining members
+    const { data: remaining } = await supabase
+      .from("room_members")
+      .select("user_id")
+      .eq("room_id", room.id)
+      .limit(1);
+
+    if (remaining && remaining.length > 0) {
+      // Transfer host to the first remaining member
+      await supabase
+        .from("rooms")
+        .update({ host_id: remaining[0].user_id })
+        .eq("id", room.id);
+
+      await supabase
+        .from("room_members")
+        .update({ is_host: true })
+        .eq("room_id", room.id)
+        .eq("user_id", remaining[0].user_id);
+    } else {
+      // No members left → delete the room
+      await supabase.from("rooms").delete().eq("id", room.id);
+    }
+  }
+
+  return { error: null };
+};
+
 // ── Case & game messages ─────────────────────────────────────────────────────────────
 export const saveCaseToRoom = async (
   code: string,
@@ -169,7 +231,7 @@ export const insertGameMessage = async (
 
 export const fetchRanking = async () => {  const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url, total_wins, total_games, gacha_tickets")
+  .select("id, username, avatar_url, total_wins, total_games")
     .order("total_wins", { ascending: false })
     .limit(50);
 

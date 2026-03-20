@@ -13,9 +13,9 @@
     "test:watch": "vitest",
     "db:push": "node scripts/push-schema.mjs",
     "generate:avatars": "node scripts/generate-seed-avatars.mjs",
-    "backend:dev": "cd backend && bun run dev",
-    "backend:build": "cd backend && bun run build",
-    "backend:start": "cd backend && bun run start"
+    "backend:dev": "pnpm --filter hosomat-backend dev",
+    "backend:build": "pnpm --filter hosomat-backend build",
+    "backend:start": "pnpm --filter hosomat-backend start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -3,7 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import caseRoutes from './routes/cases.js';
 import chatRoutes from './routes/chat.js';
-import gachaRoutes from './routes/gacha.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,7 +26,6 @@ app.get('/health', (_req, res) => {
 // Routes
 app.use('/api/cases', caseRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/gacha', gachaRoutes);
 
 // Error handling
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

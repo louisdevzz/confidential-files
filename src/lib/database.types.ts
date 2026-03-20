@@ -33,7 +33,6 @@ export interface Profile {
   avatar_url: string | null;
   total_wins: number;
   total_games: number;
-  gacha_tickets: number;
   created_at: string;
 }
 

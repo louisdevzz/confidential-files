@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Search, Trophy, Sparkles, LogOut, Menu, X, Ticket, 
-  User, Package, ChevronDown, Crown 
+  Search, Trophy, Sparkles, LogOut, Menu, X,
+  User, ChevronDown, Crown 
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 const navLinks = [
   { to: "/rooms", label: "Phòng Chờ", icon: <Search className="w-4 h-4" /> },
   { to: "/ranking", label: "Bảng Xếp Hạng", icon: <Trophy className="w-4 h-4" /> },
-  { to: "/gacha", label: "Gacha", icon: <Sparkles className="w-4 h-4" /> },
 ];
 
 const Header = () => {
@@ -64,20 +63,6 @@ const Header = () => {
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              {/* Gacha tickets */}
-              <button
-                onClick={() => navigate("/gacha")}
-                className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent/10 text-accent font-body text-sm font-bold hover:bg-accent/20 transition-colors"
-              >
-                <Ticket className="w-4 h-4" />
-                {user?.email === "louisdevzz04@gmail.com" ? (
-                  <span className="flex items-center gap-1">
-                    ∞
-                    <span className="text-[10px] bg-danger-gradient px-1.5 py-0.5 rounded text-white">ADMIN</span>
-                  </span>
-                ) : (profile?.gacha_tickets ?? "...")}
-              </button>
-
               {/* Create room button */}
               <button
                 onClick={() => navigate("/create")}
@@ -162,22 +147,6 @@ const Header = () => {
                         >
                           <User className="w-4 h-4" />
                           Hồ sơ của tôi
-                        </button>
-
-                        <button
-                          onClick={() => { navigate("/gacha"); setProfileOpen(false); }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-body text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors text-left"
-                        >
-                          <Package className="w-4 h-4" />
-                          Bộ sưu tập nhân vật
-                        </button>
-
-                        <button
-                          onClick={() => { navigate("/gacha"); setProfileOpen(false); }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-body text-sm text-accent hover:bg-accent/10 transition-colors text-left"
-                        >
-                          <Ticket className="w-4 h-4" />
-                          <span>Gacha ({user?.email === "louisdevzz04@gmail.com" ? "∞" : (profile?.gacha_tickets || 0)} vé)</span>
                         </button>
 
                         <div className="my-2 border-t border-border/50" />
