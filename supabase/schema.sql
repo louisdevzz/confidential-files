@@ -80,7 +80,6 @@ as $$
 declare
   v_room_id uuid;
   v_code text;
-  v_chars constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   v_attempt int := 0;
 begin
   if auth.uid() is null or auth.uid() <> p_host_id then
@@ -106,10 +105,7 @@ begin
   while v_attempt < 8 loop
     v_attempt := v_attempt + 1;
 
-    v_code := (
-      select string_agg(substr(v_chars, (get_byte(gen_random_bytes(1), 0) % length(v_chars)) + 1, 1), '')
-      from generate_series(1, 6)
-    );
+    v_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
 
     begin
       insert into rooms (code, host_id, subjects, difficulty, max_players, status)

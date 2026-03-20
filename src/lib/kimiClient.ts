@@ -13,16 +13,32 @@
 import type { Subject, Difficulty, SafeGeneratedCase } from "@/lib/database.types";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_API_URL || "http://localhost:3001/api";
+const GENERATE_CASE_TIMEOUT_MS = 0;
+const CHAT_TIMEOUT_MS = 15000;
 
 // Helper để gọi API
-const apiCall = async <T>(endpoint: string, body: unknown): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+const apiCall = async <T>(endpoint: string, body: unknown, timeoutMs = 12000): Promise<T> => {
+  const controller = new AbortController();
+  const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Yêu cầu quá thời gian chờ. Vui lòng thử lại.");
+    }
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "Unknown error" }));
@@ -47,11 +63,15 @@ export const generateCase = async (
   difficulty: Difficulty,
   roomCode: string
 ): Promise<SafeGeneratedCase> => {
-  return apiCall<SafeGeneratedCase>("/cases/generate", {
-    subject,
-    difficulty,
-    roomCode,
-  });
+  return apiCall<SafeGeneratedCase>(
+    "/cases/generate",
+    {
+      subject,
+      difficulty,
+      roomCode,
+    },
+    GENERATE_CASE_TIMEOUT_MS
+  );
 };
 
 // ─── Tầng 2: Chat với hung thủ ────────────────────────────────────────────────
@@ -76,7 +96,7 @@ export const chatWithSuspect = async (
   const data = await apiCall<{ response: string }>("/chat", {
     roomCode,
     messages,
-  });
+  }, CHAT_TIMEOUT_MS);
 
   if (!data?.response) {
     throw new Error("Backend không trả về phản hồi.");

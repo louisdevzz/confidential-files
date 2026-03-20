@@ -13,6 +13,7 @@ export interface ChatRequestOptions {
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  responseMimeType?: 'application/json' | 'text/plain';
   thinking?: {
     enabled: boolean;
     budget_tokens: number;

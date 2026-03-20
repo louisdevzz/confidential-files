@@ -35,6 +35,7 @@ export class GeminiService {
         generationConfig: {
           temperature: options.temperature ?? 0.7,
           maxOutputTokens: options.maxTokens ?? 4096,
+          ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
         },
       }),
     });
@@ -73,6 +74,7 @@ export class GeminiService {
         generationConfig: {
           temperature: options.temperature ?? 0.7,
           maxOutputTokens: options.maxTokens ?? 4096,
+          ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
         },
       }),
     });

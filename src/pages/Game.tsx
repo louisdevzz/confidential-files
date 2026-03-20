@@ -26,10 +26,14 @@ const suspicionFromCount = (aiCount: number, won: boolean): number =>
 
 // Build Kimi chat history from shared messages
 const buildHistory = (messages: GameMessage[]): ChatTurn[] =>
-  messages.map((m) => ({
-    role: m.role === "ai" ? "assistant" : "user",
-    content: m.content.replace("[GAME_OVER]", "").trim(),
-  }));
+  messages
+    .filter((m) => m.role === "ai" || m.role === "user")
+    .slice(-14)
+    .map((m) => ({
+      role: (m.role === "ai" ? "assistant" : "user") as ChatTurn["role"],
+      content: m.content.replace("[GAME_OVER]", "").trim(),
+    }))
+    .filter((m) => m.content.length > 0);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -169,8 +173,7 @@ const Game = () => {
     setIsAiTyping(true);
     let aiResponse = "";
     try {
-      const currentMsgs = await fetchGameMessages(code);
-      aiResponse = await chatWithSuspect(buildHistory(currentMsgs), code);
+      aiResponse = await chatWithSuspect(buildHistory([...messages, tempUser]), code);
     } catch (e) {
       aiResponse = `(Lỗi kết nối AI: ${(e as Error).message.slice(0, 100)})`;
     }
