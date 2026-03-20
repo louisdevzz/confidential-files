@@ -63,6 +63,77 @@ create table if not exists room_members (
 );
 
 -- ============================================================
+-- RPC: tạo phòng + host member trong 1 transaction (giảm round-trip)
+-- ============================================================
+create or replace function create_room_with_host(
+  p_host_id uuid,
+  p_nickname text,
+  p_subject text,
+  p_difficulty text,
+  p_max_players int
+)
+returns table(room_id uuid, room_code text)
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_room_id uuid;
+  v_code text;
+  v_chars constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  v_attempt int := 0;
+begin
+  if auth.uid() is null or auth.uid() <> p_host_id then
+    raise exception 'Unauthorized';
+  end if;
+
+  if p_nickname is null or length(trim(p_nickname)) = 0 then
+    raise exception 'Nickname is required';
+  end if;
+
+  if p_subject not in ('math', 'physics', 'chemistry', 'biology') then
+    raise exception 'Invalid subject';
+  end if;
+
+  if p_difficulty not in ('easy', 'medium', 'hard') then
+    raise exception 'Invalid difficulty';
+  end if;
+
+  if p_max_players < 2 or p_max_players > 5 then
+    raise exception 'Invalid max_players';
+  end if;
+
+  while v_attempt < 8 loop
+    v_attempt := v_attempt + 1;
+
+    v_code := (
+      select string_agg(substr(v_chars, (get_byte(gen_random_bytes(1), 0) % length(v_chars)) + 1, 1), '')
+      from generate_series(1, 6)
+    );
+
+    begin
+      insert into rooms (code, host_id, subjects, difficulty, max_players, status)
+      values (v_code, p_host_id, array[p_subject], p_difficulty, p_max_players, 'waiting')
+      returning id into v_room_id;
+
+      insert into room_members (room_id, user_id, nickname, is_host)
+      values (v_room_id, p_host_id, trim(p_nickname), true);
+
+      room_id := v_room_id;
+      room_code := v_code;
+      return next;
+      return;
+    exception
+      when unique_violation then
+        continue;
+    end;
+  end loop;
+
+  raise exception 'Unable to generate unique room code';
+end;
+$$;
+
+-- ============================================================
 -- Row Level Security (RLS)
 -- ============================================================
 

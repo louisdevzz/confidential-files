@@ -1,12 +1,17 @@
 import { supabase } from "@/lib/supabase";
 import type { Room, Subject, Difficulty, GeneratedCase, GameMessage } from "@/lib/database.types";
 
-/** Tạo mã phòng 6 ký tự bằng CSPRNG */
-const generateRoomCode = (): string => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const arr = new Uint8Array(6);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => chars[b % chars.length]).join("");
+const db = supabase as unknown as {
+  rpc: (
+    fn: string,
+    args?: Record<string, unknown>
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  from: (table: string) => {
+    select: (...args: unknown[]) => any;
+    insert: (...args: unknown[]) => any;
+    update: (...args: unknown[]) => any;
+    delete: (...args: unknown[]) => any;
+  };
 };
 
 export interface CreateRoomParams {
@@ -24,30 +29,22 @@ export const createRoom = async ({
   difficulty,
   maxPlayers,
 }: CreateRoomParams): Promise<{ roomCode: string; error: string | null }> => {
-  // Thử tạo với code ngẫu nhiên (retry nếu trùng)
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const code = generateRoomCode();
+  const { data, error } = await db.rpc("create_room_with_host", {
+    p_host_id: hostId,
+    p_nickname: nickname.trim(),
+    p_subject: subject,
+    p_difficulty: difficulty,
+    p_max_players: maxPlayers,
+  });
 
-    const { data: room, error: roomError } = await supabase
-      .from("rooms")
-      .insert({ code, host_id: hostId, subjects: [subject], difficulty, max_players: maxPlayers, status: "waiting" })
-      .select("id")
-      .single();
+  if (error) return { roomCode: "", error: error.message };
 
-    if (roomError) {
-      if (roomError.code === "23505") continue; // unique violation, retry
-      return { roomCode: "", error: roomError.message };
-    }
-
-    const { error: memberError } = await supabase
-      .from("room_members")
-      .insert({ room_id: room.id, user_id: hostId, nickname, is_host: true });
-
-    if (memberError) return { roomCode: "", error: memberError.message };
-
-    return { roomCode: code, error: null };
+  const roomCode = (data as { room_code: string }[] | null)?.[0]?.room_code;
+  if (!roomCode) {
+    return { roomCode: "", error: "Không thể tạo phòng. Vui lòng thử lại." };
   }
-  return { roomCode: "", error: "Không thể tạo mã phòng. Vui lòng thử lại." };
+
+  return { roomCode, error: null };
 };
 
 export const joinRoom = async ({
@@ -59,7 +56,7 @@ export const joinRoom = async ({
   userId: string;
   nickname: string;
 }): Promise<{ room: Room | null; error: string | null }> => {
-  const { data: room, error: fetchError } = await supabase
+  const { data: room, error: fetchError } = await db
     .from("rooms")
     .select("*, room_members(count)")
     .eq("code", code.toUpperCase())
@@ -71,7 +68,7 @@ export const joinRoom = async ({
   const memberCount = (room as unknown as { room_members: { count: number }[] }).room_members[0]?.count ?? 0;
 
   // Kiểm tra xem user đã là member chưa (host/member quay lại phòng)
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("room_members")
     .select("id")
     .eq("room_id", room.id)
@@ -83,7 +80,7 @@ export const joinRoom = async ({
 
   if (memberCount >= room.max_players) return { room: null, error: "Phòng đã đầy." };
 
-  const { error: joinError } = await supabase
+  const { error: joinError } = await db
     .from("room_members")
     .insert({ room_id: room.id, user_id: userId, nickname, is_host: false });
 
@@ -93,7 +90,7 @@ export const joinRoom = async ({
 };
 
 export const fetchWaitingRooms = async (): Promise<Room[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("rooms")
     .select("*, host:profiles!rooms_host_id_fkey(username, avatar_url), room_members(count)")
     .eq("status", "waiting")
@@ -109,7 +106,7 @@ export const fetchWaitingRooms = async (): Promise<Room[]> => {
 };
 
 export const startGame = async (code: string): Promise<{ error: string | null }> => {
-  const { error } = await supabase
+  const { error } = await db
     .from("rooms")
     .update({ status: "playing" })
     .eq("code", code);
@@ -119,7 +116,7 @@ export const startGame = async (code: string): Promise<{ error: string | null }>
 export const fetchRoomWithMembers = async (
   code: string
 ): Promise<{ room: Room | null; members: import("@/lib/database.types").RoomMember[]; error: string | null }> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("rooms")
     .select("*, host:profiles!rooms_host_id_fkey(username, avatar_url), room_members(*, profile:profiles(username, avatar_url))")
     .eq("code", code)
@@ -141,7 +138,7 @@ export const leaveRoom = async ({
   userId: string;
 }): Promise<{ error: string | null }> => {
   // Fetch room + membership info
-  const { data: room, error: roomErr } = await supabase
+  const { data: room, error: roomErr } = await db
     .from("rooms")
     .select("id, host_id, status")
     .eq("code", roomCode)
@@ -153,7 +150,7 @@ export const leaveRoom = async ({
   if (room.status === "playing") return { error: "Không thể rời phòng khi đang chơi." };
 
   // Delete member record
-  const { error: delErr } = await supabase
+  const { error: delErr } = await db
     .from("room_members")
     .delete()
     .eq("room_id", room.id)
@@ -164,7 +161,7 @@ export const leaveRoom = async ({
   // If the leaving user is the host
   if (room.host_id === userId) {
     // Check remaining members
-    const { data: remaining } = await supabase
+    const { data: remaining } = await db
       .from("room_members")
       .select("user_id")
       .eq("room_id", room.id)
@@ -172,19 +169,19 @@ export const leaveRoom = async ({
 
     if (remaining && remaining.length > 0) {
       // Transfer host to the first remaining member
-      await supabase
+      await db
         .from("rooms")
         .update({ host_id: remaining[0].user_id })
         .eq("id", room.id);
 
-      await supabase
+      await db
         .from("room_members")
         .update({ is_host: true })
         .eq("room_id", room.id)
         .eq("user_id", remaining[0].user_id);
     } else {
       // No members left → delete the room
-      await supabase.from("rooms").delete().eq("id", room.id);
+      await db.from("rooms").delete().eq("id", room.id);
     }
   }
 
@@ -196,7 +193,7 @@ export const saveCaseToRoom = async (
   code: string,
   caseData: GeneratedCase
 ): Promise<{ error: string | null }> => {
-  const { error } = await supabase
+  const { error } = await db
     .from("rooms")
     .update({ case_data: caseData })
     .eq("code", code);
@@ -204,7 +201,7 @@ export const saveCaseToRoom = async (
 };
 
 export const fetchGameMessages = async (roomCode: string): Promise<GameMessage[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("game_messages")
     .select("*")
     .eq("room_code", roomCode)
@@ -218,7 +215,7 @@ export const insertGameMessage = async (
   senderNickname: string,
   content: string
 ): Promise<{ id: string | null; error: string | null }> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("game_messages")
     .insert({ room_code: roomCode, role, sender_nickname: senderNickname, content })
     .select("id")
@@ -229,9 +226,10 @@ export const insertGameMessage = async (
   };
 };
 
-export const fetchRanking = async () => {  const { data, error } = await supabase
+export const fetchRanking = async () => {
+  const { data, error } = await db
     .from("profiles")
-  .select("id, username, avatar_url, total_wins, total_games")
+    .select("id, username, avatar_url, total_wins, total_games")
     .order("total_wins", { ascending: false })
     .limit(50);
 

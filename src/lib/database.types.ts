@@ -61,6 +61,11 @@ export interface RoomMember {
   profile?: Profile;
 }
 
+export interface CreateRoomWithHostResult {
+  room_id: string;
+  room_code: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -68,20 +73,70 @@ export interface Database {
         Row: Profile;
         Insert: Partial<Profile> & { id: string };
         Update: Partial<Profile>;
+        Relationships: [];
       };
       rooms: {
         Row: Room;
         Insert: Omit<Room, "id" | "created_at" | "host" | "member_count">;
         Update: Partial<Omit<Room, "id" | "created_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "rooms_host_id_fkey";
+            columns: ["host_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+            isOneToOne: false;
+          }
+        ];
       };
       room_members: {
         Row: RoomMember;
         Insert: Omit<RoomMember, "id" | "joined_at">;
         Update: Partial<Omit<RoomMember, "id" | "joined_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "room_members_room_id_fkey";
+            columns: ["room_id"];
+            referencedRelation: "rooms";
+            referencedColumns: ["id"];
+            isOneToOne: false;
+          },
+          {
+            foreignKeyName: "room_members_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+            isOneToOne: false;
+          }
+        ];
+      };
+      game_messages: {
+        Row: GameMessage;
+        Insert: Omit<GameMessage, "id" | "created_at">;
+        Update: Partial<Omit<GameMessage, "id" | "created_at">>;
+        Relationships: [];
       };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
-    Enums: Record<string, never>;
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      create_room_with_host: {
+        Args: {
+          p_host_id: string;
+          p_nickname: string;
+          p_subject: Subject;
+          p_difficulty: Difficulty;
+          p_max_players: number;
+        };
+        Returns: CreateRoomWithHostResult[];
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
 }

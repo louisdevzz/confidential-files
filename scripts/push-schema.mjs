@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // ── Đọc biến môi trường ──────────────────────────────────────────────────────
 const loadEnv = () => {
   try {
-    const env = readFileSync(resolve(__dirname, "../.env.local"), "utf8");
+    const env = readFileSync(resolve(__dirname, "../.env"), "utf8");
     for (const line of env.split("\n")) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) continue;
