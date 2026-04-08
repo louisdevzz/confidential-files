@@ -1,9 +1,8 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import { readFile } from 'node:fs/promises';
 import { supabase } from '../lib/supabase.js';
 import { GeminiService } from '../services/geminiService.js';
 import { createLogger, withErrorMeta } from '../lib/logger.js';
-import type { ChatResponse, FullGeneratedCase, GenerateCaseRequest } from '../types/index.js';
+import type { ChatResponse, ChatRequestOptions, FullGeneratedCase, GenerateCaseRequest } from '../types/index.js';
 
 const router: ExpressRouter = Router();
 const geminiService = new GeminiService();
@@ -24,7 +23,22 @@ const DIFFICULTY_LABELS: Record<string, string> = {
   hard: 'lớp 11–12, kiến thức nâng cao',
 };
 
-let detectiveStyleReferencePromise: Promise<string> | null = null;
+const CASE_RESPONSE_SCHEMA: Record<string, unknown> = {
+  type: 'OBJECT',
+  required: ['boi_canh', 'ten_hung_thu', 'loi_khai', 'kien_thuc_an', 'tu_khoa_thang_cuoc'],
+  properties: {
+    boi_canh: { type: 'STRING' },
+    ten_hung_thu: { type: 'STRING' },
+    loi_khai: { type: 'STRING' },
+    kien_thuc_an: { type: 'STRING' },
+    tu_khoa_thang_cuoc: {
+      type: 'ARRAY',
+      items: { type: 'STRING' },
+      minItems: 3,
+      maxItems: 5,
+    },
+  },
+};
 
 const parseTimeoutMs = (value: string | undefined, defaultMs: number): number => {
   const parsed = Number(value);
@@ -32,59 +46,14 @@ const parseTimeoutMs = (value: string | undefined, defaultMs: number): number =>
   return Math.max(1000, Math.floor(parsed));
 };
 
+const parsePositiveInt = (value: string | undefined, defaultValue: number): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return defaultValue;
+  return Math.floor(parsed);
+};
+
 const CASE_GENERATION_TIMEOUT_MS = parseTimeoutMs(process.env.CASE_GENERATION_TIMEOUT_MS, 35000);
-const CASE_RESCUE_TIMEOUT_MS = parseTimeoutMs(process.env.CASE_RESCUE_TIMEOUT_MS, 20000);
-
-const sanitizeReferenceText = (input: string): string => {
-  const cleanedLines = input
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .filter((line) => !line.startsWith('!['))
-    .filter((line) => !/^https?:\/\//i.test(line))
-    .map((line) =>
-      line
-        .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
-        .replace(/^[#>*\-\d.\s]+/, '')
-        .replace(/[*_`~]/g, '')
-        .trim()
-    )
-    .filter((line) => line.length >= 24);
-
-  const deduped: string[] = [];
-  for (const line of cleanedLines) {
-    if (!deduped.includes(line)) deduped.push(line);
-    if (deduped.length >= 18) break;
-  }
-
-  const merged = deduped.join(' ');
-  return merged.length > 1800 ? `${merged.slice(0, 1800)}...` : merged;
-};
-
-const getDetectiveStyleReference = async (): Promise<string> => {
-  if (!detectiveStyleReferencePromise) {
-    detectiveStyleReferencePromise = readFile(new URL('../../vu-an-hay.md', import.meta.url), 'utf-8')
-      .then((content) => sanitizeReferenceText(content))
-      .catch(() => '');
-  }
-
-  return detectiveStyleReferencePromise;
-};
-
-const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> => {
-  let timer: NodeJS.Timeout | null = null;
-
-  try {
-    return await Promise.race<T>([
-      promise,
-      new Promise<T>((resolve) => {
-        timer = setTimeout(() => resolve(fallback), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-};
+const CASE_THINKING_BUDGET = parsePositiveInt(process.env.CASE_THINKING_BUDGET, 256);
 
 const previewText = (value: string, max = 320): string => {
   return value.replace(/\s+/g, ' ').trim().slice(0, max);
@@ -95,8 +64,10 @@ const callGeminiChatWithTimeout = async (params: {
   temperature: number;
   maxTokens: number;
   responseMimeType: 'application/json' | 'text/plain';
+  responseSchema?: ChatRequestOptions['responseSchema'];
+  thinking?: ChatRequestOptions['thinking'];
   timeoutMs: number;
-  phase: 'primary' | 'rescue';
+  phase: 'primary';
   roomCode: string;
   subject: string;
 }): Promise<ChatResponse | null> => {
@@ -109,6 +80,8 @@ const callGeminiChatWithTimeout = async (params: {
       temperature: params.temperature,
       maxTokens: params.maxTokens,
       responseMimeType: params.responseMimeType,
+      responseSchema: params.responseSchema,
+      thinking: params.thinking,
       abortSignal: abortController.signal,
     });
   } catch (error) {
@@ -269,140 +242,66 @@ router.post('/generate', async (req, res) => {
       difficulty,
       difficultyLabel,
       generationTimeoutMs: CASE_GENERATION_TIMEOUT_MS,
-      rescueTimeoutMs: CASE_RESCUE_TIMEOUT_MS,
     });
 
-    const detectiveStyleReference = await withTimeout(getDetectiveStyleReference(), 800, '');
-
     const prompt =
-  `Bạn tạo 1 vụ án học đường dạng suy luận đơn giản, đời thường, logic rõ ràng.\n\n` +
-
-  `MÔN: ${subjectLabel} (${difficultyLabel})\n\n` +
-
-  `YÊU CẦU:\n` +
-  `- Tình huống thật trong lớp học (mất đồ / hỏng đồ / dấu vết lạ)\n` +
-  `- Có 1-2 manh mối quan sát được\n` +
-  `- Có 1 nhân chứng thấy hành động đáng ngờ\n` +
-  `- Nghi phạm có động cơ hợp lý (sợ bị phạt, che giấu lỗi...)\n` +
-  `- Lời khai nghe hợp lý nhưng chứa đúng 1 lỗi kiến thức ${subjectLabel}\n` +
-  `- Khi áp dụng kiến thức đúng → lời khai bị mâu thuẫn\n\n` +
-
-  `TRÁNH:\n` +
-  `- Không drama, không phi thực tế\n` +
-  `- Không giải thích kiểu sách giáo khoa\n` +
-  `- Không kết luận thủ phạm trong bối cảnh\n\n` +
-
-  `TRẢ VỀ JSON DUY NHẤT:\n` +
-  `{\n` +
-  `  "boi_canh": "5-8 câu, mỗi câu phải có chi tiết cụ thể (thời gian, hành động, đồ vật). Phải có: 1 đồ vật, 2 mốc thời gian, 1 nhân chứng thấy hành động rõ ràng",\n` +
-  `  "ten_hung_thu": "tên riêng học sinh (1-2 từ)",\n` +
-  `  "loi_khai": "5-8 câu, mỗi câu có hành động hoặc giải thích cụ thể. Phải có chống chế tự nhiên và chứa đúng 1 lỗi kiến thức",\n` +
-  `  "kien_thuc_an": "giải thích rõ: câu nào sai, kiến thức đúng là gì, và chi tiết nào bác lại lời khai",\n` +
-  `  "tu_khoa_thang_cuoc": ["3-5 từ khóa cụ thể"]\n` +
-  `}\n\n` +
-  `Viết chi tiết, không viết câu chung chung. Chỉ trả JSON.`
-
+      `Tạo 1 sự cố học đường đời thường, an toàn, phù hợp học sinh Việt Nam.\n` +
+      `Môn trọng tâm: ${subjectLabel} (${difficultyLabel}). Mâu thuẫn chính phải thuộc môn này.\n\n` +
+      `Yêu cầu nội dung:\n` +
+      `- Có 1 nghi phạm là học sinh, có lý do ở gần hiện trường\n` +
+      `- Có 1 nhân chứng thấy hành động cụ thể\n` +
+      `- Có 2 mốc thời gian rõ ràng\n` +
+      `- Có 1 đồ vật cụ thể liên quan trực tiếp đến mâu thuẫn\n` +
+      `- Lời khai phải phủ nhận và chứa đúng 1 lỗi kiến thức ${subjectLabel}\n\n` +
+      `Cấm: bạo lực nặng, chết người, bối cảnh hình sự, drama phi thực tế.\n\n` +
+      `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
+      `Độ dài gợi ý: boi_canh 4-5 câu, loi_khai 4-5 câu, tu_khoa_thang_cuoc gồm 3-5 từ khóa ngắn.\n` +
+      `Không markdown. Không giải thích ngoài JSON.`;
+    
     logger.debug('Case generation prompt prepared', {
       roomCode,
       subject: validSubject,
       promptLength: prompt.length,
-      hasDetectiveReference: detectiveStyleReference.length > 0,
-      detectiveReferenceLength: detectiveStyleReference.length,
     });
 
     const geminiResponse = await callGeminiChatWithTimeout({
       prompt,
-      temperature: 0.35,
+      temperature: 0.45,
       maxTokens: 1200,
       responseMimeType: 'application/json',
+      responseSchema: CASE_RESPONSE_SCHEMA,
+      thinking: { enabled: true, budget_tokens: CASE_THINKING_BUDGET },
       timeoutMs: CASE_GENERATION_TIMEOUT_MS,
       phase: 'primary',
       roomCode,
       subject: validSubject,
     });
 
-    const raw = geminiResponse?.content ?? '';
+    if (!geminiResponse) {
+      throw new Error('AI generate timeout, vui lòng thử lại.');
+    }
+
+    const raw = geminiResponse.content ?? '';
     logger.info('Primary case response received', {
       roomCode,
       subject: validSubject,
       contentLength: raw.length,
     });
 
-    let fullCase: FullGeneratedCase | null = tryParseCaseJson(raw);
-    let source: 'direct' | 'rescued' = 'direct';
+    const fullCase = tryParseCaseJson(raw);
 
     if (!fullCase) {
-      logger.warn('Primary parse failed, trying rescue parse', {
+      logger.error('Primary parse failed', {
         roomCode,
         subject: validSubject,
         rawPreview: previewText(raw),
       });
-
-      const rescuePrompt =
-      raw.trim().length === 0
-        ? `Tạo nhanh 1 JSON hợp lệ theo schema sau. Nội dung ngắn gọn, hợp lý:\n` +
-          `{\n` +
-          `  "boi_canh": string,\n` +
-          `  "ten_hung_thu": string,\n` +
-          `  "loi_khai": string,\n` +
-          `  "kien_thuc_an": string,\n` +
-          `  "tu_khoa_thang_cuoc": string[]\n` +
-          `}\n` +
-          `Yêu cầu: không rỗng, ten_hung_thu là tên riêng, keywords 3-5.\n` +
-          `Chỉ trả JSON.`
-
-        : `Chuẩn hóa nội dung sau thành JSON hợp lệ theo schema.\n` +
-          `Nếu thiếu thì tự điền.\n\n` +
-          `Schema:\n` +
-          `{\n` +
-          `  "boi_canh": string,\n` +
-          `  "ten_hung_thu": string,\n` +
-          `  "loi_khai": string,\n` +
-          `  "kien_thuc_an": string,\n` +
-          `  "tu_khoa_thang_cuoc": string[]\n` +
-          `}\n\n` +
-          `Nội dung:\n${raw}\n\n` +
-          `Chỉ trả JSON.`;
-
-      const rescue = await callGeminiChatWithTimeout({
-        prompt: rescuePrompt,
-        temperature: raw.trim().length === 0 ? 0.5 : 0.65,
-        maxTokens: 1400,
-        responseMimeType: 'application/json',
-        timeoutMs: CASE_RESCUE_TIMEOUT_MS,
-        phase: 'rescue',
-        roomCode,
-        subject: validSubject,
-      });
-
-      const rescueContent = rescue?.content ?? '';
-      logger.info('Rescue response received', {
-        roomCode,
-        subject: validSubject,
-        contentLength: rescueContent.length,
-      });
-
-      fullCase = tryParseCaseJson(rescueContent);
-      if (fullCase) source = 'rescued';
-
-      if (!fullCase) {
-        logger.error('Rescue parse failed', {
-          roomCode,
-          subject: validSubject,
-          rawPreview: previewText(raw),
-          rescuePreview: previewText(rescueContent),
-        });
-      }
-    }
-
-    if (!fullCase) {
-      throw new Error('AI trả nội dung rỗng hoặc JSON không hợp lệ sau bước rescue.');
+      throw new Error('AI trả JSON không hợp lệ ở lần generate đầu tiên.');
     }
 
     logger.info('case_generation_result', {
       roomCode,
       subject: validSubject,
-      source,
     });
 
     // Save to DB
@@ -416,7 +315,6 @@ router.post('/generate', async (req, res) => {
     logger.info('Case generation completed', {
       roomCode,
       subject: validSubject,
-      source,
       durationMs: Date.now() - startedAt,
       boiCanhLength: fullCase.boi_canh.length,
       loiKhaiLength: fullCase.loi_khai.length,

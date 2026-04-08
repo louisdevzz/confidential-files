@@ -30,6 +30,43 @@ export class GeminiService {
     }));
   }
 
+  private supportsThinkingConfig(model: string): boolean {
+    const normalized = model.toLowerCase();
+    return normalized.includes('pro');
+  }
+
+  private buildGenerationConfig(options: ChatRequestOptions, model: string): Record<string, unknown> {
+    const baseConfig: Record<string, unknown> = {
+      temperature: options.temperature ?? 0.7,
+      maxOutputTokens: options.maxTokens ?? 4096,
+    };
+
+    if (options.responseMimeType) {
+      baseConfig.responseMimeType = options.responseMimeType;
+    }
+
+    if (options.responseSchema) {
+      baseConfig.responseSchema = options.responseSchema;
+    }
+
+    if (options.thinking?.enabled && Number.isFinite(options.thinking.budget_tokens)) {
+      const budget = Math.max(1, Math.floor(options.thinking.budget_tokens));
+
+      if (this.supportsThinkingConfig(model)) {
+        baseConfig.thinkingConfig = {
+          thinkingBudget: budget,
+        };
+      } else {
+        logger.warn('Thinking config skipped for model', {
+          model,
+          requestedThinkingBudget: budget,
+        });
+      }
+    }
+
+    return baseConfig;
+  }
+
   async chat(options: ChatRequestOptions): Promise<ChatResponse> {
     const url = `${this.baseUrl}/models/${options.model || this.defaultModel}:generateContent?key=${this.apiKey}`;
     const startedAt = Date.now();
@@ -41,6 +78,11 @@ export class GeminiService {
       temperature: options.temperature ?? 0.7,
       maxTokens: options.maxTokens ?? 4096,
       responseMimeType: options.responseMimeType ?? 'text/plain',
+      hasResponseSchema: Boolean(options.responseSchema),
+      thinkingBudget:
+        options.thinking?.enabled && Number.isFinite(options.thinking.budget_tokens)
+          ? Math.max(1, Math.floor(options.thinking.budget_tokens))
+          : null,
     });
     
     try {
@@ -52,11 +94,7 @@ export class GeminiService {
         signal: options.abortSignal,
         body: JSON.stringify({
           contents: this.convertMessages(options.messages),
-          generationConfig: {
-            temperature: options.temperature ?? 0.7,
-            maxOutputTokens: options.maxTokens ?? 4096,
-            ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
-          },
+          generationConfig: this.buildGenerationConfig(options, model),
         }),
       });
 
@@ -138,6 +176,11 @@ export class GeminiService {
       temperature: options.temperature ?? 0.7,
       maxTokens: options.maxTokens ?? 4096,
       responseMimeType: options.responseMimeType ?? 'text/plain',
+      hasResponseSchema: Boolean(options.responseSchema),
+      thinkingBudget:
+        options.thinking?.enabled && Number.isFinite(options.thinking.budget_tokens)
+          ? Math.max(1, Math.floor(options.thinking.budget_tokens))
+          : null,
     });
     
     try {
@@ -149,11 +192,7 @@ export class GeminiService {
         signal: options.abortSignal,
         body: JSON.stringify({
           contents: this.convertMessages(options.messages),
-          generationConfig: {
-            temperature: options.temperature ?? 0.7,
-            maxOutputTokens: options.maxTokens ?? 4096,
-            ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
-          },
+          generationConfig: this.buildGenerationConfig(options, model),
         }),
       });
 
