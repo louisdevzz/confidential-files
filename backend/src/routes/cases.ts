@@ -218,55 +218,56 @@ router.post('/generate', async (req, res) => {
     });
 
     const diversityBlock =
-      `ĐA DẠNG BẮT BUỘC:\n` +
-      `- Không lặp lại mô típ quen như: bình hoa, bình nước, chậu cây, bài kiểm tra, bàn giáo viên, giấy bị rách.\n` +
-      `- Ưu tiên 1 nhóm bối cảnh khác với các lần thường gặp: đồ cá nhân, đồ trực nhật, đồ học chung, khu vực trường, góc sinh học.\n` +
-      `- Đồ vật và vị trí phải khác các mô típ cũ.\n\n`;
+  `ĐA DẠNG BẮT BUỘC:\n` +
+  `- Không lặp lại mô típ quen như: bình hoa, bình nước, chậu cây, bài kiểm tra, bàn giáo viên, giấy bị rách.\n` +
+  `- Ưu tiên bối cảnh khác với các mô típ cũ: đồ cá nhân, đồ trực nhật, đồ học chung, khu vực trường, góc sinh học, phòng thí nghiệm, sân thể dục, thư viện, nhà xe.\n` +
+  `- Đồ vật và vị trí phải khác các case quen thuộc.\n\n`;
 
-    const alignmentBlock =
-      `ĐỘ KHỚP GIỮA BỐI CẢNH VÀ LỜI KHAI:\n` +
-      `- Lời khai phải trả lời trực tiếp đúng nghi ngờ chính nêu trong bối cảnh.\n` +
-      `- Không được đổi sang một cơ chế khác của sự cố.\n` +
-      `- Nếu bối cảnh nghi bị va, đụng, làm rơi, làm văng, làm lệch... thì lời khai phải bám đúng cơ chế đó để chối.\n` +
-      `- Lời khai chỉ được chối theo kiểu: "đúng là em có ở đó / có chạm / có đi qua, nhưng không thể gây ra kết quả đó vì ..."\n` +
-      `- Không được tạo lời khai làm người đọc cảm giác đang nói sang một câu chuyện khác.\n\n`;
+const alignmentBlock =
+  `ĐỘ KHỚP GIỮA BỐI CẢNH VÀ LỜI KHAI:\n` +
+  `- Lời khai phải trả lời trực tiếp đúng nghi ngờ chính nêu trong bối cảnh.\n` +
+  `- Không được đổi sang một cơ chế khác của sự cố.\n` +
+  `- Lời khai phải đúng một phần để nghe có vẻ hợp lý lúc đầu, nhưng sai ở mấu chốt.\n` +
+  `- Bối cảnh phải có 1 chi tiết khớp lời khai và 1 chi tiết nhỏ dùng để bác lại lời khai.\n\n`;
 
-    const prompt =
-      `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam.\n` +
-      `Mức độ kiến thức mục tiêu: ${difficultyLabel}. Điểm lật lời khai bắt buộc phải dựa vào kiến thức học đường phù hợp mức này, không chỉ là suy luận chung chung.\n\n` +
+  const prompt =
+    `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam, có chất suy luận kiểu thám tử học đường.\n` +
+    `Mức độ kiến thức mục tiêu: ${difficultyLabel}. Người chơi ở mức này phải có thể tự giải nếu quan sát kỹ và suy luận hợp lý.\n\n` +
 
-      `Yêu cầu:\n` +
-      `- Có 1 nghi phạm là học sinh, có lý do hợp lý ở gần hiện trường.\n` +
-      `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
-      `- Có 2 mốc thời gian rõ ràng.\n` +
-      `- Có 1 đồ vật liên quan trực tiếp.\n` +
-      `- Bối cảnh phải rất đời thường, không màu mè, không giống đề thi.\n` +
-      `- Bối cảnh phải có 1 chi tiết khớp lời khai để lời khai nghe có lý lúc đầu.\n` +
-      `- Đồng thời phải có 1 chi tiết nhỏ nhưng quan trọng để bác lại lời khai.\n` +
-      `- Lời khai phải đúng một phần, sai ở mấu chốt.\n\n` +
+    `YÊU CẦU CỐT LÕI:\n` +
+    `- Có 1 nghi phạm là học sinh, có lý do hợp lý để ở gần hiện trường.\n` +
+    `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
+    `- Có 2 mốc thời gian rõ ràng.\n` +
+    `- Có 1 đồ vật liên quan trực tiếp.\n` +
+    `- Bối cảnh phải rất đời thường, không màu mè, không giống đề thi.\n` +
+    `- Vụ việc có thể kết hợp 2-3 mảng kiến thức học đường hoặc logic đời thường, nhưng phải có 1 mâu thuẫn chính rõ nhất để phá án.\n` +
+    `- Các chi tiết phụ phải hỗ trợ suy luận, không được là chi tiết trang trí.\n` +
+    `- Mâu thuẫn phải đủ kín để ban đầu lời khai nghe hợp lý, nhưng đủ rõ để người chơi có thể lật lại.\n\n` +
 
-      `${diversityBlock}` +
-      `${alignmentBlock}` +
-      `Lời khai phải:\n` +
-      `- Ngắn, tự nhiên, giống học sinh đang cãi.\n` +
-      `- Phủ nhận hành vi, không tự thú.\n` +
-      `- Có 1 câu chống chế đời thường.\n` +
-      `- Câu chống chế đó phải ẩn 1 hiểu sai kiến thức học đường.\n` +
-      `- Không công thức, không định lý, không phương trình, không số đo dài dòng, không giải thích như làm bài.\n` +
-      `- Không dùng giọng AI, không văn vẻ, không tranh luận quá trơn tru.\n\n` +
+    `${diversityBlock}` +
+    `${alignmentBlock}` +
 
-      `Tránh:\n` +
-      `- Bạo lực nặng, chết người, hình sự, drama quá mức.\n` +
-      `- Bối cảnh nghe như truyện trinh thám sân khấu.\n` +
-      `- Lời khai lộ rõ kiến thức như đang trả bài.\n\n` +
+    `LỜI KHAI PHẢI:\n` +
+    `- Ngắn, tự nhiên, giống học sinh đang cãi thật.\n` +
+    `- Phủ nhận hành vi, không tự thú.\n` +
+    `- Có 1 câu chống chế đời thường.\n` +
+    `- Câu chống chế có thể ẩn 1-2 hiểu sai nhỏ về kiến thức học đường hoặc logic quan sát.\n` +
+    `- Không công thức, không định lý, không phương trình, không số đo dài dòng, không giải thích như làm bài.\n` +
+    `- Không dùng giọng AI, không văn vẻ, không tranh luận quá trơn tru.\n\n` +
 
-      `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
-      `- boi_canh: 4-5 câu, tự nhiên như chuyện thật ở trường.\n` +
-      `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
-      `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
-      `- kien_thuc_an: chỉ rõ câu nào sai, kiến thức đúng là gì, và chi tiết nào trong bối cảnh bác lại lời khai.\n` +
-      `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
-      `Không markdown. Không giải thích ngoài JSON.`;
+    `TRÁNH:\n` +
+    `- Bạo lực nặng, chết người, hình sự, drama quá mức.\n` +
+    `- Bối cảnh nghe như truyện trinh thám sân khấu.\n` +
+    `- Lời khai lộ rõ kiến thức như đang trả bài.\n` +
+    `- Case quá khó đến mức phải dùng kiến thức ngoài tầm học sinh ${difficultyLabel}.\n\n` +
+
+    `TRẢ VỀ DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
+    `- boi_canh: 4-5 câu, tự nhiên như chuyện thật ở trường, có 1 chi tiết khớp lời khai và 1 chi tiết bác lại lời khai.\n` +
+    `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
+    `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
+    `- kien_thuc_an: chỉ rõ mâu thuẫn chính, những hiểu sai liên quan, và chi tiết nào trong bối cảnh bác lại lời khai.\n` +
+    `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
+    `Không markdown. Không giải thích ngoài JSON.`;
     
     logger.debug('Case generation prompt prepared', {
       roomCode,

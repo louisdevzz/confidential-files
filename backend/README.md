@@ -58,7 +58,7 @@ GET /health
 ### Generate Case (Tầng 1)
 ```
 POST /api/cases/generate
-Body: { subject: string, difficulty: string, roomCode: string }
+Body: { difficulty: string, roomCode: string }
 Response: SafeGeneratedCase (không chứa tu_khoa_thang_cuoc)
 ```
 

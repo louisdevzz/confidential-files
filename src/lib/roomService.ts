@@ -14,6 +14,15 @@ const db = supabase as unknown as {
   };
 };
 
+const LEGACY_SUBJECT_FALLBACK = "physics";
+
+const shouldRetryWithLegacyCreateRoomSignature = (message: string): boolean => {
+  return (
+    message.includes("Could not find the function public.create_room_with_host") &&
+    message.includes("p_difficulty")
+  );
+};
+
 export interface CreateRoomParams {
   hostId: string;
   nickname: string;
@@ -27,12 +36,24 @@ export const createRoom = async ({
   difficulty,
   maxPlayers,
 }: CreateRoomParams): Promise<{ roomCode: string; error: string | null }> => {
-  const { data, error } = await db.rpc("create_room_with_host", {
+  const baseArgs = {
     p_host_id: hostId,
     p_nickname: nickname.trim(),
     p_difficulty: difficulty,
     p_max_players: maxPlayers,
-  });
+  };
+
+  const primaryResult = await db.rpc("create_room_with_host", baseArgs);
+
+  const rpcResult =
+    primaryResult.error && shouldRetryWithLegacyCreateRoomSignature(primaryResult.error.message)
+      ? await db.rpc("create_room_with_host", {
+          ...baseArgs,
+          p_subject: LEGACY_SUBJECT_FALLBACK,
+        })
+      : primaryResult;
+
+  const { data, error } = rpcResult;
 
   if (error) return { roomCode: "", error: error.message };
 

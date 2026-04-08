@@ -65,6 +65,8 @@ create table if not exists room_members (
 -- ============================================================
 -- RPC: tạo phòng + host member trong 1 transaction (giảm round-trip)
 -- ============================================================
+drop function if exists create_room_with_host(uuid, text, text, text, int);
+
 create or replace function create_room_with_host(
   p_host_id uuid,
   p_nickname text,
