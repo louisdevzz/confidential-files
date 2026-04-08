@@ -234,15 +234,15 @@ const alignmentBlock =
     `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam, có chất suy luận kiểu thám tử học đường.\n` +
     `Mức độ kiến thức mục tiêu: ${difficultyLabel}. Người chơi ở mức này phải có thể tự giải nếu quan sát kỹ và suy luận hợp lý.\n\n` +
 
-    `YÊU CẦU CỐT LÕI:\n` +
-    `- Có 1 nghi phạm là học sinh, có lý do hợp lý để ở gần hiện trường.\n` +
-    `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
-    `- Có 2 mốc thời gian rõ ràng.\n` +
-    `- Có 1 đồ vật liên quan trực tiếp.\n` +
-    `- Bối cảnh phải rất đời thường, không màu mè, không giống đề thi.\n` +
-    `- Vụ việc có thể kết hợp 2-3 mảng kiến thức học đường hoặc logic đời thường, nhưng phải có 1 mâu thuẫn chính rõ nhất để phá án.\n` +
-    `- Các chi tiết phụ phải hỗ trợ suy luận, không được là chi tiết trang trí.\n` +
-    `- Mâu thuẫn phải đủ kín để ban đầu lời khai nghe hợp lý, nhưng đủ rõ để người chơi có thể lật lại.\n\n` +
+  `Yêu cầu:\n` +
+  `- Có 1 nghi phạm là học sinh, có lý do hợp lý ở gần hiện trường.\n` +
+  `- Có thể có nhân chứng hoặc người để ý thấy 1 chi tiết liên quan, nhưng không bắt buộc lúc nào cũng nhìn thấy trọn vẹn hành động.\n` +
+  `- Chỉ dùng mốc thời gian khi thật sự giúp suy luận; không bắt buộc lúc nào cũng phải ghi giờ phút cụ thể.\n` +
+  `- Có 1 đồ vật liên quan trực tiếp.\n` +
+  `- Bối cảnh phải rất đời thường, giống chuyện học sinh kể lại, không giống biên bản hay đề bài.\n` +
+  `- Bối cảnh phải có 1 chi tiết khớp lời khai để lời khai nghe có lý lúc đầu.\n` +
+  `- Đồng thời phải có 1 chi tiết nhỏ nhưng quan trọng để bác lại lời khai.\n` +
+  `- Lời khai phải đúng một phần, sai ở mấu chốt.\n\n` +
 
     `${diversityBlock}` +
     `${alignmentBlock}` +
@@ -262,9 +262,9 @@ const alignmentBlock =
     `- Case quá khó đến mức phải dùng kiến thức ngoài tầm học sinh ${difficultyLabel}.\n\n` +
 
     `TRẢ VỀ DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
-    `- boi_canh: 4-5 câu, tự nhiên như chuyện thật ở trường, có 1 chi tiết khớp lời khai và 1 chi tiết bác lại lời khai.\n` +
+    `- boi_canh: 4-5 câu, kể như một học sinh hoặc người trong trường đang thuật lại sự việc. Ưu tiên từ ngữ tự nhiên, không cần lúc nào cũng có giờ phút cụ thể. Chỉ nêu thời gian, nhân chứng hoặc vật chứng khi thật sự cần cho suy luận.\n` +
     `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
-    `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
+    `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế, giống lời cãi thật của học sinh. Không được quá tròn trịa, không nói như đang viết bản tường trình.\n` +
     `- kien_thuc_an: chỉ rõ mâu thuẫn chính, những hiểu sai liên quan, và chi tiết nào trong bối cảnh bác lại lời khai.\n` +
     `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
     `Không markdown. Không giải thích ngoài JSON.`;

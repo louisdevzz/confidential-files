@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Send, Trophy, Home, RotateCcw, Loader2, Eye, Lightbulb,
+  Send, Trophy, Home, RotateCcw, Loader2, Eye,
   ChevronDown, ChevronUp, AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,6 +35,24 @@ const buildHistory = (messages: GameMessage[]): ChatTurn[] =>
     }))
     .filter((m) => m.content.length > 0);
 
+type ProfileTotals = {
+  total_wins?: number | null;
+  total_games?: number | null;
+};
+
+const db = supabase as unknown as {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        single: () => Promise<{ data: unknown; error: { message: string } | null }>;
+      };
+    };
+    update: (values: Record<string, unknown>) => {
+      eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>;
+    };
+  };
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const Game = () => {
@@ -52,11 +70,10 @@ const Game = () => {
   const [won, setWon] = useState(false);
   const [mvp, setMvp] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [showHint, setShowHint] = useState(false);
   const [caseOpen, setCaseOpen] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   // Dedup: tracks content keys we inserted optimistically so we skip realtime echo
   const optimisticKeys = useRef(new Set<string>());
   // Track who sent the last user message (for MVP detection by other players)
@@ -112,6 +129,14 @@ const Game = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isAiTyping]);
 
+  // Auto-grow composer height up to a readable limit
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 176)}px`;
+  }, [input]);
+
   // ── Win logic ───────────────────────────────────────────────────────────────
   const triggerWin = useCallback(
     async (mvpName: string, isCurrentUser: boolean) => {
@@ -119,24 +144,26 @@ const Game = () => {
       setWon(true);
       setMvp(mvpName);
       if (!code) return;
-      await supabase.from("rooms").update({ status: "finished" }).eq("code", code);
+      await db.from("rooms").update({ status: "finished" }).eq("code", code);
       if (user?.id && isCurrentUser) {
-        const { data: p } = await supabase
+        const { data: rawProfile } = await db
           .from("profiles")
           .select("total_wins, total_games")
           .eq("id", user.id)
           .single();
-        if (p) {
-          await supabase.from("profiles").update({
-            total_wins: (p.total_wins ?? 0) + 1,
-            total_games: (p.total_games ?? 0) + 1,
+        const profile = rawProfile as ProfileTotals | null;
+        if (profile) {
+          await db.from("profiles").update({
+            total_wins: (profile.total_wins ?? 0) + 1,
+            total_games: (profile.total_games ?? 0) + 1,
           }).eq("id", user.id);
         }
       } else if (user?.id) {
-        const { data: p } = await supabase.from("profiles").select("total_games").eq("id", user.id).single();
-        if (p) {
-          await supabase.from("profiles").update({
-            total_games: (p.total_games ?? 0) + 1,
+        const { data: rawProfile } = await db.from("profiles").select("total_games").eq("id", user.id).single();
+        const profile = rawProfile as ProfileTotals | null;
+        if (profile) {
+          await db.from("profiles").update({
+            total_games: (profile.total_games ?? 0) + 1,
           }).eq("id", user.id);
         }
       }
@@ -200,7 +227,7 @@ const Game = () => {
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
@@ -208,7 +235,6 @@ const Game = () => {
   const aiMsgCount = messages.filter((m) => m.role === "ai").length;
   const suspicion = suspicionFromCount(aiMsgCount, won);
   const phase = phaseFromCount(aiMsgCount);
-  const suspicionColor = suspicion >= 70 ? "bg-red-500" : suspicion >= 35 ? "bg-amber-400" : "bg-green-500";
   const phaseLabel = phase === "calm" ? "Bình thản · Tự tin" : phase === "nervous" ? "Bắt đầu lo lắng" : "Sắp vỡ trận";
 
   // ── Loading / error ─────────────────────────────────────────────────────────
@@ -286,7 +312,7 @@ const Game = () => {
 
       <main className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-4 p-3 lg:p-6 max-w-6xl mx-auto w-full">
         {/* ── Left: Case File ── */}
-        <div className="lg:w-80 flex-shrink-0">
+        <div className="lg:w-[22rem] flex-shrink-0">
           <div className="bg-card mystery-border rounded-2xl overflow-hidden">
             <button
               onClick={() => setCaseOpen((v) => !v)}
@@ -386,24 +412,29 @@ const Game = () => {
             <div ref={bottomRef} />
           </div>
 
-          <div className="p-3 border-t border-border flex gap-2">
-            <input
+          <div className="p-3 border-t border-border">
+            <div className="flex items-end gap-2">
+              <textarea
               ref={inputRef}
-              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isSending || isAiTyping || won}
               placeholder={won ? "Vụ án đã được phá..." : "Dùng kiến thức để vạch trần lời khai giả..."}
-              className="flex-1 bg-muted/30 border border-border rounded-xl px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || isSending || isAiTyping || won}
-              className="w-11 h-11 flex items-center justify-center bg-primary rounded-xl text-foreground hover:bg-primary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-            >
-              {isSending || isAiTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </button>
+                rows={1}
+                className="flex-1 max-h-44 resize-none overflow-y-auto bg-muted/30 border border-border rounded-xl px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground leading-6 focus:outline-none focus:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim() || isSending || isAiTyping || won}
+                className="w-11 h-11 flex items-center justify-center bg-primary rounded-xl text-foreground hover:bg-primary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                {isSending || isAiTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="mt-2 px-1 text-[11px] text-muted-foreground font-body">
+              Enter để gửi · Shift + Enter để xuống dòng
+            </p>
           </div>
         </div>
       </main>
