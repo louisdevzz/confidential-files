@@ -62,27 +62,20 @@ const previewText = (value: string, max = 320): string => {
 const callGeminiChatWithTimeout = async (params: {
   prompt: string;
   temperature: number;
-  maxTokens: number;
   responseMimeType: 'application/json' | 'text/plain';
   responseSchema?: ChatRequestOptions['responseSchema'];
   thinking?: ChatRequestOptions['thinking'];
-  timeoutMs: number;
   phase: 'primary';
   roomCode: string;
   subject: string;
 }): Promise<ChatResponse | null> => {
-  const abortController = new AbortController();
-  const timer = setTimeout(() => abortController.abort(), params.timeoutMs);
-
   try {
     return await geminiService.chat({
       messages: [{ role: 'user', content: params.prompt }],
       temperature: params.temperature,
-      maxTokens: params.maxTokens,
       responseMimeType: params.responseMimeType,
       responseSchema: params.responseSchema,
       thinking: params.thinking,
-      abortSignal: abortController.signal,
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -90,13 +83,10 @@ const callGeminiChatWithTimeout = async (params: {
         roomCode: params.roomCode,
         subject: params.subject,
         phase: params.phase,
-        timeoutMs: params.timeoutMs,
       });
       return null;
     }
     throw error;
-  } finally {
-    clearTimeout(timer);
   }
 };
 
@@ -245,18 +235,31 @@ router.post('/generate', async (req, res) => {
     });
 
     const prompt =
-      `Tạo 1 sự cố học đường đời thường, an toàn, phù hợp học sinh Việt Nam.\n` +
-      `Môn trọng tâm: ${subjectLabel} (${difficultyLabel}). Mâu thuẫn chính phải thuộc môn này.\n\n` +
-      `Yêu cầu nội dung:\n` +
-      `- Có 1 nghi phạm là học sinh, có lý do ở gần hiện trường\n` +
-      `- Có 1 nhân chứng thấy hành động cụ thể\n` +
-      `- Có 2 mốc thời gian rõ ràng\n` +
-      `- Có 1 đồ vật cụ thể liên quan trực tiếp đến mâu thuẫn\n` +
-      `- Lời khai phải phủ nhận và chứa đúng 1 lỗi kiến thức ${subjectLabel}\n\n` +
-      `Cấm: bạo lực nặng, chết người, bối cảnh hình sự, drama phi thực tế.\n\n` +
-      `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
-      `Độ dài gợi ý: boi_canh 4-5 câu, loi_khai 4-5 câu, tu_khoa_thang_cuoc gồm 3-5 từ khóa ngắn.\n` +
-      `Không markdown. Không giải thích ngoài JSON.`;
+  `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam.\n` +
+  `Môn trọng tâm: ${subjectLabel} (${difficultyLabel}). Mâu thuẫn chính phải thuộc môn này nhưng phải ẩn tự nhiên, không lộ kiểu bài tập.\n\n` +
+
+  `Yêu cầu:\n` +
+  `- Có 1 nghi phạm là học sinh, có lý do hợp lý ở gần hiện trường.\n` +
+  `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
+  `- Có 2 mốc thời gian rõ ràng.\n` +
+  `- Có 1 đồ vật liên quan trực tiếp.\n` +
+  `- Bối cảnh phải đời thường, không màu mè, không dùng chi tiết hình học/học thuật nếu không thật sự cần.\n` +
+  `- Lời khai phải đúng một phần để nghe có lý lúc đầu, nhưng sai ở mấu chốt.\n` +
+  `- Lời khai phải ngắn, tự nhiên, giống học sinh đang cãi: dùng văn nói đời thường, phủ nhận hành vi, không tự thú.\n` +
+  `- Hiểu sai về ${subjectLabel} phải ẩn trong câu chống chế đời thường; không công thức, không số đo, không định lý, không giải thích như làm bài.\n\n` +
+
+  `Tránh:\n` +
+  `- Bạo lực nặng, chết người, hình sự, drama quá mức.\n` +
+  `- Bối cảnh nghe như truyện trinh thám hoặc đề bài toán.\n` +
+  `- Các câu kiểu AI như "suy ra", "do đó", "quãng đường dài hơn", "cắt chéo".\n\n` +
+
+  `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
+  `- boi_canh: 4-5 câu, tự nhiên như chuyện thật, có 1 chi tiết khớp lời khai và 1 chi tiết bác lại lời khai.\n` +
+  `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
+  `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
+  `- kien_thuc_an: chỉ rõ câu nào sai, kiến thức đúng là gì, và chi tiết nào bác lại lời khai.\n` +
+  `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
+  `Không markdown. Không giải thích ngoài JSON.`;
     
     logger.debug('Case generation prompt prepared', {
       roomCode,
@@ -266,12 +269,10 @@ router.post('/generate', async (req, res) => {
 
     const geminiResponse = await callGeminiChatWithTimeout({
       prompt,
-      temperature: 0.45,
-      maxTokens: 1200,
+      temperature: 0.6,
       responseMimeType: 'application/json',
       responseSchema: CASE_RESPONSE_SCHEMA,
       thinking: { enabled: true, budget_tokens: CASE_THINKING_BUDGET },
-      timeoutMs: CASE_GENERATION_TIMEOUT_MS,
       phase: 'primary',
       roomCode,
       subject: validSubject,
