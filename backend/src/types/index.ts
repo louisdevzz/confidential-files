@@ -44,7 +44,6 @@ export interface ChatTurn {
 }
 
 export interface GenerateCaseRequest {
-  subject: string;
   difficulty: string;
   roomCode: string;
 }

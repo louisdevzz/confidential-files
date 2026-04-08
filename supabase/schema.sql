@@ -68,7 +68,6 @@ create table if not exists room_members (
 create or replace function create_room_with_host(
   p_host_id uuid,
   p_nickname text,
-  p_subject text,
   p_difficulty text,
   p_max_players int
 )
@@ -90,10 +89,6 @@ begin
     raise exception 'Nickname is required';
   end if;
 
-  if p_subject not in ('math', 'physics', 'chemistry', 'biology') then
-    raise exception 'Invalid subject';
-  end if;
-
   if p_difficulty not in ('easy', 'medium', 'hard') then
     raise exception 'Invalid difficulty';
   end if;
@@ -109,7 +104,7 @@ begin
 
     begin
       insert into rooms (code, host_id, subjects, difficulty, max_players, status)
-      values (v_code, p_host_id, array[p_subject], p_difficulty, p_max_players, 'waiting')
+      values (v_code, p_host_id, array[]::text[], p_difficulty, p_max_players, 'waiting')
       returning id into v_room_id;
 
       insert into room_members (room_id, user_id, nickname, is_host)

@@ -8,15 +8,6 @@ const router: ExpressRouter = Router();
 const geminiService = new GeminiService();
 const logger = createLogger('cases-route');
 
-const VALID_SUBJECTS = ['math', 'physics', 'chemistry', 'biology'] as const;
-
-const SUBJECT_LABELS: Record<string, string> = {
-  math: 'Toán Học',
-  physics: 'Vật Lý',
-  chemistry: 'Hóa Học',
-  biology: 'Sinh Học',
-};
-
 const DIFFICULTY_LABELS: Record<string, string> = {
   easy: 'lớp 6–8, kiến thức cơ bản',
   medium: 'lớp 9–10, kiến thức trung bình',
@@ -67,7 +58,6 @@ const callGeminiChatWithTimeout = async (params: {
   thinking?: ChatRequestOptions['thinking'];
   phase: 'primary';
   roomCode: string;
-  subject: string;
 }): Promise<ChatResponse | null> => {
   try {
     return await geminiService.chat({
@@ -81,7 +71,6 @@ const callGeminiChatWithTimeout = async (params: {
     if (error instanceof Error && error.name === 'AbortError') {
       logger.warn('Gemini request timed out', {
         roomCode: params.roomCode,
-        subject: params.subject,
         phase: params.phase,
       });
       return null;
@@ -211,7 +200,7 @@ const tryParseCaseJson = (raw: string): FullGeneratedCase | null => {
 };
 
 router.post('/generate', async (req, res) => {
-  const { subject, difficulty, roomCode } = req.body as GenerateCaseRequest;
+  const { difficulty, roomCode } = req.body as GenerateCaseRequest;
   const startedAt = Date.now();
 
   try {
@@ -219,90 +208,68 @@ router.post('/generate', async (req, res) => {
       return res.status(400).json({ error: 'difficulty và roomCode là bắt buộc' });
     }
 
-    // Validate subject — fallback to random if not provided
-    const validSubject = (VALID_SUBJECTS as readonly string[]).includes(subject)
-      ? subject
-      : VALID_SUBJECTS[Math.floor(Math.random() * VALID_SUBJECTS.length)];
-    const subjectLabel = SUBJECT_LABELS[validSubject];
     const difficultyLabel = DIFFICULTY_LABELS[difficulty] ?? difficulty;
 
     logger.info('Case generation started', {
       roomCode,
-      subject: validSubject,
       difficulty,
       difficultyLabel,
       generationTimeoutMs: CASE_GENERATION_TIMEOUT_MS,
     });
 
-    const subjectConstraintMap: Record<string, string> = {
-    math:
-      `Nếu môn là Toán Học, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: khoảng cách, đường ngắn nhất, tỉ lệ, diện tích, chu vi, góc, xác suất, đơn vị hoặc quan hệ hình học đơn giản. Không dùng công thức, không nêu số đo dài dòng, không nói như đang giải bài.`,
-    physics:
-      `Nếu môn là Vật Lý, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: lực, quán tính, chuyển động, âm, ánh sáng, nhiệt hoặc điện. Không dùng định luật dài dòng, không giải thích như sách giáo khoa.`,
-    chemistry:
-      `Nếu môn là Hóa Học, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: phản ứng, tính chất chất, axit-bazơ, hiện tượng đổi màu, mùi, hòa tan hoặc nồng độ. Không nêu phương trình hóa học, không giải thích kiểu bài học.`,
-    biology:
-      `Nếu môn là Sinh Học, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: cây cối, vi sinh, hô hấp, quang hợp, cơ thể sống, môi trường sống hoặc di truyền cơ bản. Không dùng định nghĩa dài, không nói như đang trả bài.`,
-  };
+    const diversityBlock =
+      `ĐA DẠNG BẮT BUỘC:\n` +
+      `- Không lặp lại mô típ quen như: bình hoa, bình nước, chậu cây, bài kiểm tra, bàn giáo viên, giấy bị rách.\n` +
+      `- Ưu tiên 1 nhóm bối cảnh khác với các lần thường gặp: đồ cá nhân, đồ trực nhật, đồ học chung, khu vực trường, góc sinh học.\n` +
+      `- Đồ vật và vị trí phải khác các mô típ cũ.\n\n`;
 
-  const subjectConstraint = subjectConstraintMap[validSubject] ?? '';
+    const alignmentBlock =
+      `ĐỘ KHỚP GIỮA BỐI CẢNH VÀ LỜI KHAI:\n` +
+      `- Lời khai phải trả lời trực tiếp đúng nghi ngờ chính nêu trong bối cảnh.\n` +
+      `- Không được đổi sang một cơ chế khác của sự cố.\n` +
+      `- Nếu bối cảnh nghi bị va, đụng, làm rơi, làm văng, làm lệch... thì lời khai phải bám đúng cơ chế đó để chối.\n` +
+      `- Lời khai chỉ được chối theo kiểu: "đúng là em có ở đó / có chạm / có đi qua, nhưng không thể gây ra kết quả đó vì ..."\n` +
+      `- Không được tạo lời khai làm người đọc cảm giác đang nói sang một câu chuyện khác.\n\n`;
 
-  const diversityBlock =
-    `ĐA DẠNG BẮT BUỘC:\n` +
-    `- Không lặp lại mô típ quen như: bình hoa, bình nước, chậu cây, bài kiểm tra, bàn giáo viên, giấy bị rách.\n` +
-    `- Ưu tiên 1 nhóm bối cảnh khác với các lần thường gặp: đồ cá nhân, đồ trực nhật, đồ học chung, khu vực trường, góc sinh học.\n` +
-    `- Đồ vật và vị trí phải khác các mô típ cũ.\n\n`;
+    const prompt =
+      `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam.\n` +
+      `Mức độ kiến thức mục tiêu: ${difficultyLabel}. Điểm lật lời khai bắt buộc phải dựa vào kiến thức học đường phù hợp mức này, không chỉ là suy luận chung chung.\n\n` +
 
-  const alignmentBlock =
-  `ĐỘ KHỚP GIỮA BỐI CẢNH VÀ LỜI KHAI:\n` +
-  `- Lời khai phải trả lời trực tiếp đúng nghi ngờ chính nêu trong bối cảnh.\n` +
-  `- Không được đổi sang một cơ chế khác của sự cố.\n` +
-  `- Nếu bối cảnh nghi bị va, đụng, làm rơi, làm văng, làm lệch... thì lời khai phải bám đúng cơ chế đó để chối.\n` +
-  `- Lời khai chỉ được chối theo kiểu: "đúng là em có ở đó / có chạm / có đi qua, nhưng không thể gây ra kết quả đó vì ..."\n` +
-  `- Không được tạo lời khai làm người đọc cảm giác đang nói sang một câu chuyện khác.\n\n`;
+      `Yêu cầu:\n` +
+      `- Có 1 nghi phạm là học sinh, có lý do hợp lý ở gần hiện trường.\n` +
+      `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
+      `- Có 2 mốc thời gian rõ ràng.\n` +
+      `- Có 1 đồ vật liên quan trực tiếp.\n` +
+      `- Bối cảnh phải rất đời thường, không màu mè, không giống đề thi.\n` +
+      `- Bối cảnh phải có 1 chi tiết khớp lời khai để lời khai nghe có lý lúc đầu.\n` +
+      `- Đồng thời phải có 1 chi tiết nhỏ nhưng quan trọng để bác lại lời khai.\n` +
+      `- Lời khai phải đúng một phần, sai ở mấu chốt.\n\n` +
 
-  const prompt =
-    `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam.\n` +
-    `Môn trọng tâm: ${subjectLabel} (${difficultyLabel}). Điểm lật lời khai bắt buộc phải dựa trực tiếp vào kiến thức của môn này, không chỉ là suy luận chung chung.\n\n` +
+      `${diversityBlock}` +
+      `${alignmentBlock}` +
+      `Lời khai phải:\n` +
+      `- Ngắn, tự nhiên, giống học sinh đang cãi.\n` +
+      `- Phủ nhận hành vi, không tự thú.\n` +
+      `- Có 1 câu chống chế đời thường.\n` +
+      `- Câu chống chế đó phải ẩn 1 hiểu sai kiến thức học đường.\n` +
+      `- Không công thức, không định lý, không phương trình, không số đo dài dòng, không giải thích như làm bài.\n` +
+      `- Không dùng giọng AI, không văn vẻ, không tranh luận quá trơn tru.\n\n` +
 
-    `Yêu cầu:\n` +
-    `- Có 1 nghi phạm là học sinh, có lý do hợp lý ở gần hiện trường.\n` +
-    `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
-    `- Có 2 mốc thời gian rõ ràng.\n` +
-    `- Có 1 đồ vật liên quan trực tiếp.\n` +
-    `- Bối cảnh phải rất đời thường, không màu mè, không giống đề thi.\n` +
-    `- Bối cảnh phải có 1 chi tiết khớp lời khai để lời khai nghe có lý lúc đầu.\n` +
-    `- Đồng thời phải có 1 chi tiết nhỏ nhưng quan trọng để bác lại lời khai.\n` +
-    `- Lời khai phải đúng một phần, sai ở mấu chốt.\n\n` +
+      `Tránh:\n` +
+      `- Bạo lực nặng, chết người, hình sự, drama quá mức.\n` +
+      `- Bối cảnh nghe như truyện trinh thám sân khấu.\n` +
+      `- Lời khai lộ rõ kiến thức như đang trả bài.\n\n` +
 
-    `${diversityBlock}` +
-    `${alignmentBlock}` +
-    `Lời khai phải:\n` +
-    `- Ngắn, tự nhiên, giống học sinh đang cãi.\n` +
-    `- Phủ nhận hành vi, không tự thú.\n` +
-    `- Có 1 câu chống chế đời thường.\n` +
-    `- Câu chống chế đó phải ẩn 1 hiểu sai về ${subjectLabel}.\n` +
-    `- Không công thức, không định lý, không phương trình, không số đo dài dòng, không giải thích như làm bài.\n` +
-    `- Không dùng giọng AI, không văn vẻ, không tranh luận quá trơn tru.\n\n` +
-
-    `${subjectConstraint}\n\n` +
-
-    `Tránh:\n` +
-    `- Bạo lực nặng, chết người, hình sự, drama quá mức.\n` +
-    `- Bối cảnh nghe như truyện trinh thám sân khấu.\n` +
-    `- Lời khai lộ rõ kiến thức như đang trả bài.\n\n` +
-
-    `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
-    `- boi_canh: 4-5 câu, tự nhiên như chuyện thật ở trường.\n` +
-    `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
-    `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
-    `- kien_thuc_an: chỉ rõ câu nào sai, kiến thức đúng của ${subjectLabel} là gì, và chi tiết nào trong bối cảnh bác lại lời khai.\n` +
-    `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
-    `Không markdown. Không giải thích ngoài JSON.`;
+      `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
+      `- boi_canh: 4-5 câu, tự nhiên như chuyện thật ở trường.\n` +
+      `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
+      `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
+      `- kien_thuc_an: chỉ rõ câu nào sai, kiến thức đúng là gì, và chi tiết nào trong bối cảnh bác lại lời khai.\n` +
+      `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
+      `Không markdown. Không giải thích ngoài JSON.`;
     
     logger.debug('Case generation prompt prepared', {
       roomCode,
-      subject: validSubject,
       promptLength: prompt.length,
     });
 
@@ -314,7 +281,6 @@ router.post('/generate', async (req, res) => {
       thinking: { enabled: true, budget_tokens: CASE_THINKING_BUDGET },
       phase: 'primary',
       roomCode,
-      subject: validSubject,
     });
 
     if (!geminiResponse) {
@@ -324,7 +290,6 @@ router.post('/generate', async (req, res) => {
     const raw = geminiResponse.content ?? '';
     logger.info('Primary case response received', {
       roomCode,
-      subject: validSubject,
       contentLength: raw.length,
     });
 
@@ -333,7 +298,6 @@ router.post('/generate', async (req, res) => {
     if (!fullCase) {
       logger.error('Primary parse failed', {
         roomCode,
-        subject: validSubject,
         rawPreview: previewText(raw),
       });
       throw new Error('AI trả JSON không hợp lệ ở lần generate đầu tiên.');
@@ -341,7 +305,6 @@ router.post('/generate', async (req, res) => {
 
     logger.info('case_generation_result', {
       roomCode,
-      subject: validSubject,
     });
 
     // Save to DB
@@ -354,7 +317,6 @@ router.post('/generate', async (req, res) => {
 
     logger.info('Case generation completed', {
       roomCode,
-      subject: validSubject,
       durationMs: Date.now() - startedAt,
       boiCanhLength: fullCase.boi_canh.length,
       loiKhaiLength: fullCase.loi_khai.length,
@@ -371,7 +333,6 @@ router.post('/generate', async (req, res) => {
       'Generate case failed',
       withErrorMeta(error, {
         roomCode,
-        subject,
         difficulty,
         durationMs: Date.now() - startedAt,
       })

@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { fetchRoomWithMembers, startGame, leaveRoom } from "@/lib/roomService";
 import { generateCase } from "@/lib/geminiClient";
 import { supabase } from "@/lib/supabase";
-import type { Room, RoomMember, Difficulty } from "@/lib/database.types";
+import type { Room, RoomMember } from "@/lib/database.types";
 
 const Lobby = () => {
   const { code } = useParams<{ code: string }>();
@@ -109,8 +109,7 @@ const Lobby = () => {
     // Tầng 1: Sinh vụ án qua Edge Function (cũng lưu vào DB, không cần saveCaseToRoom)
     setStartingLabel("Đang dựng vụ án...");
     try {
-      const subject = room.subjects?.[0] ?? "physics";
-      await generateCase(subject as "math" | "physics" | "chemistry" | "biology", room.difficulty as Difficulty, code);
+      await generateCase(room.difficulty, code);
     } catch (e) {
       setError(`Không thể tạo vụ án: ${(e as Error).message}`);
       setStarting(false);
@@ -167,11 +166,6 @@ const Lobby = () => {
 
             {/* Room info badges */}
             <div className="flex items-center justify-center gap-2 mb-6 flex-wrap">
-              {room.subjects.map((s) => (
-                <span key={s} className="text-xs font-body bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1">
-                  {s === "math" ? "🧮 Toán" : s === "physics" ? "⚡ Vật Lý" : s === "chemistry" ? "🧪 Hóa Học" : "🧬 Sinh Học"}
-                </span>
-              ))}
               <span className="text-xs font-body bg-accent/10 text-accent border border-accent/20 rounded-full px-3 py-1">
                 {room.difficulty === "easy" ? "Dễ" : room.difficulty === "medium" ? "Trung Bình" : "Khó"}
               </span>

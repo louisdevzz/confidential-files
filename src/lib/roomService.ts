@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Room, Subject, Difficulty, GeneratedCase, GameMessage } from "@/lib/database.types";
+import type { Room, Difficulty, GeneratedCase, GameMessage } from "@/lib/database.types";
 
 const db = supabase as unknown as {
   rpc: (
@@ -17,7 +17,6 @@ const db = supabase as unknown as {
 export interface CreateRoomParams {
   hostId: string;
   nickname: string;
-  subject: Subject;
   difficulty: Difficulty;
   maxPlayers: number;
 }
@@ -25,14 +24,12 @@ export interface CreateRoomParams {
 export const createRoom = async ({
   hostId,
   nickname,
-  subject,
   difficulty,
   maxPlayers,
 }: CreateRoomParams): Promise<{ roomCode: string; error: string | null }> => {
   const { data, error } = await db.rpc("create_room_with_host", {
     p_host_id: hostId,
     p_nickname: nickname.trim(),
-    p_subject: subject,
     p_difficulty: difficulty,
     p_max_players: maxPlayers,
   });

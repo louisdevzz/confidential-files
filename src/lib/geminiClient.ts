@@ -10,7 +10,7 @@
  *  • Đảm bảo tu_khoa_thang_cuoc (answer keywords) không bao giờ về client
  */
 
-import type { Subject, Difficulty, SafeGeneratedCase } from "@/lib/database.types";
+import type { Difficulty, SafeGeneratedCase } from "@/lib/database.types";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_API_URL || "http://localhost:3001/api";
 const GENERATE_CASE_TIMEOUT_MS = 0;
@@ -48,19 +48,16 @@ const apiCall = async <T>(endpoint: string, body: unknown, timeoutMs = 12000): P
  * Gọi backend API để sinh vụ án và lưu vào DB.
  * Nhận lại SafeGeneratedCase — KHÔNG chứa tu_khoa_thang_cuoc.
  *
- * @param subject  - Môn học
  * @param difficulty - Độ khó
  * @param roomCode - Mã phòng để backend lưu case vào đúng row
  */
 export const generateCase = async (
-  subject: Subject,
   difficulty: Difficulty,
   roomCode: string
 ): Promise<SafeGeneratedCase> => {
   return apiCall<SafeGeneratedCase>(
     "/cases/generate",
     {
-      subject,
       difficulty,
       roomCode,
     },

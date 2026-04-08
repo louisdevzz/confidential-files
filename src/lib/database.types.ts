@@ -125,7 +125,6 @@ export interface Database {
         Args: {
           p_host_id: string;
           p_nickname: string;
-          p_subject: Subject;
           p_difficulty: Difficulty;
           p_max_players: number;
         };

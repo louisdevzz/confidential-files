@@ -6,13 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { fetchWaitingRooms, joinRoom } from "@/lib/roomService";
 import type { Room } from "@/lib/database.types";
 
-const subjectIcons: Record<string, string> = {
-  math: "🧮",
-  physics: "⚡",
-  chemistry: "🧪",
-  biology: "🧬",
-};
-
 const diffConfig: Record<string, { label: string; color: string; bg: string }> = {
   easy: { label: "Dễ", color: "text-green-400", bg: "bg-green-400/10 border-green-400/30" },
   medium: { label: "TB", color: "text-accent", bg: "bg-accent/10 border-accent/30" },
@@ -26,7 +19,6 @@ const RoomList = () => {
   const [loading, setLoading] = useState(true);
   const [joiningCode, setJoiningCode] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [filterSubject, setFilterSubject] = useState<string>("all");
 
   const loadRooms = async () => {
     setLoading(true);
@@ -48,9 +40,7 @@ const RoomList = () => {
     navigate(`/lobby/${room!.code}`);
   };
 
-  const filteredRooms = filterSubject === "all"
-    ? rooms
-    : rooms.filter((r) => r.subjects.includes(filterSubject as never));
+  const filteredRooms = rooms;
 
   return (
     <div className="min-h-screen bg-background">
@@ -85,29 +75,6 @@ const RoomList = () => {
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Subject filter */}
-          <div className="flex gap-2 flex-wrap mb-6">
-            {[
-              { id: "all", label: "Tất cả", emoji: "🔍" },
-              { id: "math", label: "Toán", emoji: "🧮" },
-              { id: "physics", label: "Lý", emoji: "⚡" },
-              { id: "chemistry", label: "Hóa", emoji: "🧪" },
-              { id: "biology", label: "Sinh", emoji: "🧬" },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setFilterSubject(f.id)}
-                className={`px-3 py-1.5 rounded-lg font-body text-sm font-medium transition-colors border ${
-                  filterSubject === f.id
-                    ? "bg-muted text-foreground border-border"
-                    : "text-muted-foreground border-transparent hover:bg-muted/50"
-                }`}
-              >
-                {f.emoji} {f.label}
-              </button>
-            ))}
           </div>
 
           {/* Error */}
@@ -157,11 +124,6 @@ const RoomList = () => {
                           <Users className="w-3.5 h-3.5" />
                           {room.member_count ?? 0}/{room.max_players} thám tử
                         </span>
-                        <span className="flex gap-1">
-                          {room.subjects.map((s) => (
-                            <span key={s} title={s} className="text-base">{subjectIcons[s]}</span>
-                          ))}
-                        </span>
                         <span className={`px-2 py-0.5 rounded-md border font-body font-bold text-xs ${diffConfig[room.difficulty].color} ${diffConfig[room.difficulty].bg}`}>
                           {diffConfig[room.difficulty].label}
                         </span>
@@ -190,7 +152,7 @@ const RoomList = () => {
             <div className="text-center py-24">
               <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-40" />
               <p className="text-muted-foreground font-body text-lg mb-2">
-                {filterSubject === "all" ? "Chưa có phòng nào đang chờ" : `Không có phòng môn ${subjectIcons[filterSubject]} nào`}
+                Chưa có phòng nào đang chờ
               </p>
               {user && (
                 <button

@@ -6,13 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { fetchWaitingRooms, joinRoom } from "@/lib/roomService";
 import type { Room } from "@/lib/database.types";
 
-const subjectIcons: Record<string, string> = {
-  math: "🧮",
-  physics: "⚡",
-  chemistry: "🧪",
-  biology: "🧬",
-};
-
 const diffLabels: Record<string, { label: string; color: string }> = {
   easy: { label: "Dễ", color: "text-green-400" },
   medium: { label: "TB", color: "text-accent" },
@@ -135,11 +128,6 @@ const JoinRoom = () => {
                         <span className="text-muted-foreground font-body flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
                           {room.member_count ?? 0}/{room.max_players}
-                        </span>
-                        <span className="flex gap-1">
-                          {room.subjects.map((s) => (
-                            <span key={s} title={s}>{subjectIcons[s]}</span>
-                          ))}
                         </span>
                         <span className={`font-body font-bold text-xs ${diffLabels[room.difficulty].color}`}>
                           {diffLabels[room.difficulty].label}
