@@ -14,6 +14,7 @@ export interface ChatRequestOptions {
   temperature?: number;
   maxTokens?: number;
   responseMimeType?: 'application/json' | 'text/plain';
+  abortSignal?: AbortSignal;
   thinking?: {
     enabled: boolean;
     budget_tokens: number;

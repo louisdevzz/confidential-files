@@ -1,4 +1,7 @@
 import { ChatMessage, ChatResponse, ChatRequestOptions } from '../types/index.js';
+import { createLogger, withErrorMeta } from '../lib/logger.js';
+
+const logger = createLogger('gemini-service');
 
 export class GeminiService {
   private apiKey: string;
@@ -13,6 +16,11 @@ export class GeminiService {
     if (!this.apiKey) {
       throw new Error('GEMINI_API_KEY is required');
     }
+
+    logger.info('Gemini service initialized', {
+      model: this.defaultModel,
+      baseUrl: this.baseUrl,
+    });
   }
 
   private convertMessages(messages: ChatMessage[]): { role: string; parts: { text: string }[] }[] {
@@ -24,95 +32,197 @@ export class GeminiService {
 
   async chat(options: ChatRequestOptions): Promise<ChatResponse> {
     const url = `${this.baseUrl}/models/${options.model || this.defaultModel}:generateContent?key=${this.apiKey}`;
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: this.convertMessages(options.messages),
-        generationConfig: {
-          temperature: options.temperature ?? 0.7,
-          maxOutputTokens: options.maxTokens ?? 4096,
-          ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
-        },
-      }),
+    const startedAt = Date.now();
+    const model = options.model || this.defaultModel;
+
+    logger.debug('Gemini chat request started', {
+      model,
+      messageCount: options.messages.length,
+      temperature: options.temperature ?? 0.7,
+      maxTokens: options.maxTokens ?? 4096,
+      responseMimeType: options.responseMimeType ?? 'text/plain',
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Gemini API error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json() as {
-      candidates: Array<{
-        content: {
-          parts: Array<{ text: string }>;
-        };
-      }>;
-    };
-
-    const candidate = data.candidates[0];
-    const content = candidate?.content?.parts?.[0]?.text || '';
     
-    return {
-      content,
-    };
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: options.abortSignal,
+        body: JSON.stringify({
+          contents: this.convertMessages(options.messages),
+          generationConfig: {
+            temperature: options.temperature ?? 0.7,
+            maxOutputTokens: options.maxTokens ?? 4096,
+            ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        logger.error('Gemini API returned non-OK response', {
+          model,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          errorPreview: error.slice(0, 400),
+        });
+        throw new Error(`Gemini API error: ${response.status} - ${error}`);
+      }
+
+      const data = await response.json() as {
+        candidates: Array<{
+          finishReason?: string;
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+      };
+
+      const candidate = data.candidates[0];
+      const parts = candidate?.content?.parts ?? [];
+      const content = parts
+        .map((part) => part.text ?? '')
+        .join('')
+        .trim();
+
+      if (candidate?.finishReason === 'MAX_TOKENS') {
+        logger.warn('Gemini chat output hit max tokens', {
+          model,
+          durationMs: Date.now() - startedAt,
+          contentLength: content.length,
+        });
+      }
+
+      logger.debug('Gemini chat request completed', {
+        model,
+        durationMs: Date.now() - startedAt,
+        candidateCount: data.candidates.length,
+        finishReason: candidate?.finishReason ?? null,
+        partsCount: parts.length,
+        contentLength: content.length,
+      });
+
+      return {
+        content,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        logger.warn('Gemini chat request aborted', {
+          model,
+          durationMs: Date.now() - startedAt,
+        });
+        throw error;
+      }
+
+      logger.error(
+        'Gemini chat request failed',
+        withErrorMeta(error, {
+          model,
+          durationMs: Date.now() - startedAt,
+        })
+      );
+      throw error;
+    }
   }
 
   async *chatStream(options: ChatRequestOptions): AsyncGenerator<string> {
     const url = `${this.baseUrl}/models/${options.model || this.defaultModel}:streamGenerateContent?key=${this.apiKey}`;
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: this.convertMessages(options.messages),
-        generationConfig: {
-          temperature: options.temperature ?? 0.7,
-          maxOutputTokens: options.maxTokens ?? 4096,
-          ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
-        },
-      }),
+    const startedAt = Date.now();
+    const model = options.model || this.defaultModel;
+
+    logger.debug('Gemini stream request started', {
+      model,
+      messageCount: options.messages.length,
+      temperature: options.temperature ?? 0.7,
+      maxTokens: options.maxTokens ?? 4096,
+      responseMimeType: options.responseMimeType ?? 'text/plain',
     });
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: options.abortSignal,
+        body: JSON.stringify({
+          contents: this.convertMessages(options.messages),
+          generationConfig: {
+            temperature: options.temperature ?? 0.7,
+            maxOutputTokens: options.maxTokens ?? 4096,
+            ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
+          },
+        }),
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Gemini API error: ${response.status} - ${error}`);
-    }
+      if (!response.ok) {
+        const error = await response.text();
+        logger.error('Gemini stream API returned non-OK response', {
+          model,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          errorPreview: error.slice(0, 400),
+        });
+        throw new Error(`Gemini API error: ${response.status} - ${error}`);
+      }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('No response body');
-    }
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
 
-    const decoder = new TextDecoder();
-    let buffer = '';
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-      for (const line of lines) {
-        if (line.trim()) {
-          try {
-            const chunk = JSON.parse(line);
-            const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              yield text;
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const chunk = JSON.parse(line);
+              const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+              const text = parts
+                .map((part: { text?: string }) => part.text ?? '')
+                .join('');
+              if (text) {
+                yield text;
+              }
+            } catch {
+              logger.debug('Gemini stream chunk parse skipped (likely incomplete)');
             }
-          } catch {
-            // Ignore parse errors for incomplete chunks
           }
         }
       }
+
+      logger.debug('Gemini stream request completed', {
+        model,
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        logger.warn('Gemini stream request aborted', {
+          model,
+          durationMs: Date.now() - startedAt,
+        });
+        throw error;
+      }
+
+      logger.error(
+        'Gemini stream request failed',
+        withErrorMeta(error, {
+          model,
+          durationMs: Date.now() - startedAt,
+        })
+      );
+      throw error;
     }
   }
 }

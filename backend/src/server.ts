@@ -3,9 +3,11 @@ import express from 'express';
 import cors from 'cors';
 import caseRoutes from './routes/cases.js';
 import chatRoutes from './routes/chat.js';
+import { createLogger, withErrorMeta } from './lib/logger.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const logger = createLogger('server');
 
 // Middleware
 const corsOrigins = process.env.FRONTEND_URL 
@@ -28,11 +30,19 @@ app.use('/api/cases', caseRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Error handling
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error:', err);
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error(
+    'Unhandled backend error',
+    withErrorMeta(err, { method: req.method, path: req.path, status: 500 })
+  );
   res.status(500).json({ error: 'Internal server error' });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  logger.info('Server started', {
+    port: Number(PORT),
+    corsOrigins,
+    env: process.env.NODE_ENV ?? 'development',
+    logLevel: process.env.LOG_LEVEL ?? 'auto',
+  });
 });
