@@ -41,7 +41,7 @@ create table if not exists rooms (
   difficulty text not null default 'medium',
   max_players int not null default 4,
   status text not null default 'waiting',
-  case_data jsonb,  -- Dữ liệu vụ án do Kimi Tầng 1 sinh ra
+  case_data jsonb,  -- Dữ liệu vụ án do Gemini Tầng 1 sinh ra
   created_at timestamp with time zone default now(),
   constraint rooms_difficulty_check check (difficulty in ('easy', 'medium', 'hard')),
   constraint rooms_status_check check (status in ('waiting', 'playing', 'finished')),

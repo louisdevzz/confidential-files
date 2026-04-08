@@ -120,7 +120,6 @@ Game kết thúc. Hệ thống trao thưởng:
 | **Realtime** | Supabase Realtime |
 | **Storage** | Supabase Storage (avatars bucket) |
 | **AI / LLM** | Gemini API (Google) |
-| **AI Image** | Gemini 3 Pro Image / Gemini 2.0 Flash Image |
 | **Testing** | Vitest, Playwright |
 | **Package Manager** | Bun |
 
@@ -167,7 +166,6 @@ PORT=3001
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 GEMINI_API_KEY=your_gemini_api_key
-GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 FRONTEND_URL=http://localhost:5173
 ```
 
@@ -176,9 +174,6 @@ FRONTEND_URL=http://localhost:5173
 ```sh
 # Push schema lên Supabase
 bun run db:push
-
-# Generate seed avatars (optional)
-bun run backend/src/scripts/generate-seed-avatars.mjs
 ```
 
 ### Run Development
@@ -247,7 +242,6 @@ cd backend && bun run build
 │   │   │   └── gacha.ts          # Gacha system
 │   │   ├── services/             # Business logic
 │   │   │   ├── geminiService.ts  # LLM chat
-│   │   │   └── geminiImageService.ts  # AI image generation
 │   │   ├── lib/
 │   │   │   └── supabase.ts       # Supabase admin client
 │   │   └── server.ts             # Express server
@@ -258,8 +252,7 @@ cd backend && bun run build
 │   └── gacha-schema.sql          # Gacha tables
 │
 ├── scripts/                      # Utility scripts
-│   ├── push-schema.mjs           # DB migration
-│   └── generate-seed-avatars.mjs # Generate seed avatars
+│   └── push-schema.mjs           # DB migration
 │
 └── package.json
 ```

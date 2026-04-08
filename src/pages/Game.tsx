@@ -7,12 +7,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import { chatWithSuspect } from "@/lib/kimiClient";
+import { chatWithSuspect } from "@/lib/geminiClient";
 import {
   fetchRoomWithMembers, fetchGameMessages, insertGameMessage,
 } from "@/lib/roomService";
 import type { Room, SafeGeneratedCase, GameMessage, RoomMember } from "@/lib/database.types";
-import type { ChatTurn } from "@/lib/kimiClient";
+import type { ChatTurn } from "@/lib/geminiClient";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ const phaseFromCount = (aiCount: number): Phase =>
 const suspicionFromCount = (aiCount: number, won: boolean): number =>
   won ? 100 : Math.min(95, aiCount * 9);
 
-// Build Kimi chat history from shared messages
+// Build Gemini chat history from shared messages
 const buildHistory = (messages: GameMessage[]): ChatTurn[] =>
   messages
     .filter((m) => m.role === "ai" || m.role === "user")
@@ -168,7 +168,7 @@ const Game = () => {
     // Persist user message
     await insertGameMessage(code, "user", myNickname, text);
 
-    // Call Kimi Tầng 2
+    // Call Gemini Tầng 2
     setIsSending(false);
     setIsAiTyping(true);
     let aiResponse = "";

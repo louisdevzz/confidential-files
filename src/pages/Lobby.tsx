@@ -4,7 +4,7 @@ import { Copy, Users, Crown, Clock, Sparkles, Loader2, Play, Wand2, LogOut } fro
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchRoomWithMembers, startGame, leaveRoom } from "@/lib/roomService";
-import { generateCase } from "@/lib/kimiClient";
+import { generateCase } from "@/lib/geminiClient";
 import { supabase } from "@/lib/supabase";
 import type { Room, RoomMember, Difficulty } from "@/lib/database.types";
 

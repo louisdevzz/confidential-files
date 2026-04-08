@@ -4,9 +4,9 @@
  * Tầng 1 — generateCase():   Gọi backend API để sinh vụ án.
  * Tầng 2 — chatWithSuspect(): Gọi backend API để nhập vai hung thủ.
  *
- * Tất cả calls đến Kimi API đều qua backend Express server để:
+ * Tất cả calls đến Gemini API đều qua backend Express server để:
  *  • Tránh lỗi CORS khi gọi trực tiếp từ browser
- *  • Ẩn KIMI_API_KEY khỏi JS bundle
+ *  • Ẩn GEMINI_API_KEY khỏi JS bundle
  *  • Đảm bảo tu_khoa_thang_cuoc (answer keywords) không bao giờ về client
  */
 
