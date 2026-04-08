@@ -415,12 +415,12 @@ const Game = () => {
           <div className="p-3 border-t border-border">
             <div className="flex items-end gap-2">
               <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isSending || isAiTyping || won}
-              placeholder={won ? "Vụ án đã được phá..." : "Dùng kiến thức để vạch trần lời khai giả..."}
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isSending || isAiTyping || won}
+                  placeholder={won ? "Vụ án đã được phá..." : "Dùng kiến thức để vạch trần lời khai giả..."}
                 rows={1}
                 className="flex-1 max-h-44 resize-none overflow-y-auto bg-muted/30 border border-border rounded-xl px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground leading-6 focus:outline-none focus:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
               />
