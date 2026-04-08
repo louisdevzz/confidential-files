@@ -5,6 +5,7 @@ export interface ChatMessage {
 
 export interface ChatResponse {
   content: string;
+  finishReason?: string;
   reasoningContent?: string;
 }
 

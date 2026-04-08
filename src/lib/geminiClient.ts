@@ -18,9 +18,6 @@ const CHAT_TIMEOUT_MS = 15000;
 
 // Helper để gọi API
 const apiCall = async <T>(endpoint: string, body: unknown, timeoutMs = 12000): Promise<T> => {
-  const controller = new AbortController();
-  const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
-
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -28,7 +25,6 @@ const apiCall = async <T>(endpoint: string, body: unknown, timeoutMs = 12000): P
       headers: {
         "Content-Type": "application/json",
       },
-      signal: controller.signal,
       body: JSON.stringify(body),
     });
   } catch (error) {
@@ -36,9 +32,7 @@ const apiCall = async <T>(endpoint: string, body: unknown, timeoutMs = 12000): P
       throw new Error("Yêu cầu quá thời gian chờ. Vui lòng thử lại.");
     }
     throw error;
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  } 
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "Unknown error" }));

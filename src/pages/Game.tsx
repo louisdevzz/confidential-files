@@ -337,26 +337,6 @@ const Game = () => {
                       </div>
                       <p className="font-body text-xs text-muted-foreground mt-1">{phaseLabel}</p>
                     </div>
-
-                    <div>
-                      <button
-                        onClick={() => setShowHint((v) => !v)}
-                        className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 font-body transition-colors"
-                      >
-                        <Lightbulb className="w-3.5 h-3.5" />
-                        {showHint ? "Ẩn gợi ý" : "Xem gợi ý (tiết lộ môn học)"}
-                      </button>
-                      <AnimatePresence>
-                        {showHint && (
-                          <motion.p
-                            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                            className="font-body text-xs text-accent/80 mt-1 bg-accent/5 rounded-lg p-2 border border-accent/10"
-                          >
-                            💡 {caseData.kien_thuc_an}
-                          </motion.p>
-                        )}
-                      </AnimatePresence>
-                    </div>
                   </div>
                 </motion.div>
               )}

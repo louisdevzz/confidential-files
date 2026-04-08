@@ -9,7 +9,22 @@ const geminiService = new GeminiService();
 const logger = createLogger('chat-route');
 
 const ROOM_CASE_CACHE_TTL_MS = 5 * 60 * 1000;
-const CHAT_HISTORY_LIMIT = 14;
+const CHAT_HISTORY_LIMIT = 10;
+
+const parsePositiveInt = (value: string | undefined, fallback: number): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.floor(parsed);
+};
+
+const parseFloatInRange = (value: string | undefined, fallback: number, min: number, max: number): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+};
+
+const CHAT_TEMPERATURE = parseFloatInRange(process.env.CHAT_TEMPERATURE, 0.6, 0, 2);
+const CHAT_MODEL = process.env.GEMINI_CHAT_MODEL?.trim() || undefined;
 
 const roomCaseCache = new Map<string, { value: FullGeneratedCase; expiresAt: number }>();
 
@@ -55,20 +70,15 @@ const fetchRoomCaseData = async (roomCode: string): Promise<FullGeneratedCase> =
 };
 
 const buildSystemPrompt = (c: FullGeneratedCase): string =>
-  `Bạn là ${c.ten_hung_thu} - một học sinh tài giỏi, tự tin và có chút kiêu ngạo (theo phong cách thám tử học đường).\n\n` +
-  `Vụ án: ${c.boi_canh}\n\n` +
-  `Lời biện minh của bạn: "${c.loi_khai}"\n\n` +
-  `TÍNH CÁCH CỦA BẠN:\n` +
-  `- Tự tin, bình tĩnh, ăn nói lưu loát và logic\n` +
-  `- Tỏ ra người hiểu biết, thích thể hiện kiến thức\n` +
-  `- Bảo vệ quan điểm của mình một cách sắc sảo nhưng vẫn lịch sự\n` +
-  `- Khi bị ép, vẫn giữ thái độ ung dung nhưng bắt đầu lúng túng\n\n` +
-  `LUẬT CHƠI (tuyệt đối tuân thủ):\n` +
-  `- TUYỆT ĐỐI KHÔNG nhận tội cho đến khi thám tử giải thích đúng bản chất khoa học và đề cập đến: ${c.tu_khoa_thang_cuoc.join(', ')}.\n` +
-  `- Trả lời ngắn gọn (2-4 câu), súc tích, có chiều sâu.\n` +
-  `- Giọng điệu: Tự tin, thông minh, hơi kiêu một chút nhưng không kiêu ngạo quá mức.\n` +
-  `- Khi thám tử giải thích đúng (phải đề cập từ khóa then chốt), bạn tỏ ra ngạc nhiên, thừa nhận thông minh và kết thúc bằng [GAME_OVER].\n` +
-  `- Không bao giờ tiết lộ từ khóa, không gợi ý đáp án, không tự mình sửa lỗi sai trong lời khai.`;
+  `Bạn là ${c.ten_hung_thu}, học sinh bị nghi ngờ trong một sự cố ở lớp.\n` +
+  `Bối cảnh: ${c.boi_canh}\n` +
+  `Lời khai gốc: "${c.loi_khai}"\n\n` +
+  `Trả lời như học sinh thật đang cãi lại:\n` +
+  `- 1-2 câu ngắn, tối đa 35-45 từ\n` +
+  `- Tự nhiên, hơi phòng thủ, không văn vẻ\n` +
+  `- Không nhận tội, không lộ đáp án\n` +
+  `- Nếu người chơi chưa đúng, chỉ chối hoặc vặn lại ngắn gọn\n` +
+  `- Nếu người chơi đúng hẳn và chạm các ý: ${c.tu_khoa_thang_cuoc.join(', ')}, thì thừa nhận ngắn gọn và thêm [GAME_OVER]`;
 
 const toGeminiMessages = (messages: ChatRequest['messages'], systemPrompt: string): ChatMessage[] => {
   const safeMessages = messages
@@ -84,7 +94,7 @@ const toGeminiMessages = (messages: ChatRequest['messages'], systemPrompt: strin
       role: 'user',
       content: `[SYSTEM PROMPT - BẮT BUỘC TUÂN THỦ]: ${systemPrompt}\n\n[HỎI]: Đã đến lúc đối chất.`,
     },
-    { role: 'assistant', content: 'Tôi đang chờ đây. Có điều gì muốn hỏi sao?' },
+    { role: 'assistant', content: 'Ừ, cậu hỏi đi.' },
     ...safeMessages,
   ];
 };
@@ -107,9 +117,9 @@ router.post('/', async (req, res) => {
     const geminiMessages = toGeminiMessages(messages, systemPrompt);
 
     const geminiResponse = await geminiService.chat({
+      model: CHAT_MODEL,
       messages: geminiMessages,
-      temperature: 0.6,
-      maxTokens: 1200,
+      temperature: CHAT_TEMPERATURE,
     });
 
     res.json({ response: geminiResponse.content });

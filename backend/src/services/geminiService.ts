@@ -144,6 +144,7 @@ export class GeminiService {
 
       return {
         content,
+        finishReason: candidate?.finishReason,
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
