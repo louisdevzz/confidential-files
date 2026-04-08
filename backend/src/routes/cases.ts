@@ -234,32 +234,71 @@ router.post('/generate', async (req, res) => {
       generationTimeoutMs: CASE_GENERATION_TIMEOUT_MS,
     });
 
-    const prompt =
-  `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam.\n` +
-  `Môn trọng tâm: ${subjectLabel} (${difficultyLabel}). Mâu thuẫn chính phải thuộc môn này nhưng phải ẩn tự nhiên, không lộ kiểu bài tập.\n\n` +
+    const subjectConstraintMap: Record<string, string> = {
+    math:
+      `Nếu môn là Toán Học, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: khoảng cách, đường ngắn nhất, tỉ lệ, diện tích, chu vi, góc, xác suất, đơn vị hoặc quan hệ hình học đơn giản. Không dùng công thức, không nêu số đo dài dòng, không nói như đang giải bài.`,
+    physics:
+      `Nếu môn là Vật Lý, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: lực, quán tính, chuyển động, âm, ánh sáng, nhiệt hoặc điện. Không dùng định luật dài dòng, không giải thích như sách giáo khoa.`,
+    chemistry:
+      `Nếu môn là Hóa Học, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: phản ứng, tính chất chất, axit-bazơ, hiện tượng đổi màu, mùi, hòa tan hoặc nồng độ. Không nêu phương trình hóa học, không giải thích kiểu bài học.`,
+    biology:
+      `Nếu môn là Sinh Học, điểm lật phải dựa trực tiếp vào 1 hiểu sai về: cây cối, vi sinh, hô hấp, quang hợp, cơ thể sống, môi trường sống hoặc di truyền cơ bản. Không dùng định nghĩa dài, không nói như đang trả bài.`,
+  };
 
-  `Yêu cầu:\n` +
-  `- Có 1 nghi phạm là học sinh, có lý do hợp lý ở gần hiện trường.\n` +
-  `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
-  `- Có 2 mốc thời gian rõ ràng.\n` +
-  `- Có 1 đồ vật liên quan trực tiếp.\n` +
-  `- Bối cảnh phải đời thường, không màu mè, không dùng chi tiết hình học/học thuật nếu không thật sự cần.\n` +
-  `- Lời khai phải đúng một phần để nghe có lý lúc đầu, nhưng sai ở mấu chốt.\n` +
-  `- Lời khai phải ngắn, tự nhiên, giống học sinh đang cãi: dùng văn nói đời thường, phủ nhận hành vi, không tự thú.\n` +
-  `- Hiểu sai về ${subjectLabel} phải ẩn trong câu chống chế đời thường; không công thức, không số đo, không định lý, không giải thích như làm bài.\n\n` +
+  const subjectConstraint = subjectConstraintMap[validSubject] ?? '';
 
-  `Tránh:\n` +
-  `- Bạo lực nặng, chết người, hình sự, drama quá mức.\n` +
-  `- Bối cảnh nghe như truyện trinh thám hoặc đề bài toán.\n` +
-  `- Các câu kiểu AI như "suy ra", "do đó", "quãng đường dài hơn", "cắt chéo".\n\n` +
+  const diversityBlock =
+    `ĐA DẠNG BẮT BUỘC:\n` +
+    `- Không lặp lại mô típ quen như: bình hoa, bình nước, chậu cây, bài kiểm tra, bàn giáo viên, giấy bị rách.\n` +
+    `- Ưu tiên 1 nhóm bối cảnh khác với các lần thường gặp: đồ cá nhân, đồ trực nhật, đồ học chung, khu vực trường, góc sinh học.\n` +
+    `- Đồ vật và vị trí phải khác các mô típ cũ.\n\n`;
 
-  `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
-  `- boi_canh: 4-5 câu, tự nhiên như chuyện thật, có 1 chi tiết khớp lời khai và 1 chi tiết bác lại lời khai.\n` +
-  `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
-  `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
-  `- kien_thuc_an: chỉ rõ câu nào sai, kiến thức đúng là gì, và chi tiết nào bác lại lời khai.\n` +
-  `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
-  `Không markdown. Không giải thích ngoài JSON.`;
+  const alignmentBlock =
+  `ĐỘ KHỚP GIỮA BỐI CẢNH VÀ LỜI KHAI:\n` +
+  `- Lời khai phải trả lời trực tiếp đúng nghi ngờ chính nêu trong bối cảnh.\n` +
+  `- Không được đổi sang một cơ chế khác của sự cố.\n` +
+  `- Nếu bối cảnh nghi bị va, đụng, làm rơi, làm văng, làm lệch... thì lời khai phải bám đúng cơ chế đó để chối.\n` +
+  `- Lời khai chỉ được chối theo kiểu: "đúng là em có ở đó / có chạm / có đi qua, nhưng không thể gây ra kết quả đó vì ..."\n` +
+  `- Không được tạo lời khai làm người đọc cảm giác đang nói sang một câu chuyện khác.\n\n`;
+
+  const prompt =
+    `Tạo 1 sự cố học đường nhỏ, đời thường, an toàn, giống chuyện thật ở trường Việt Nam.\n` +
+    `Môn trọng tâm: ${subjectLabel} (${difficultyLabel}). Điểm lật lời khai bắt buộc phải dựa trực tiếp vào kiến thức của môn này, không chỉ là suy luận chung chung.\n\n` +
+
+    `Yêu cầu:\n` +
+    `- Có 1 nghi phạm là học sinh, có lý do hợp lý ở gần hiện trường.\n` +
+    `- Có 1 nhân chứng thấy 1 hành động cụ thể.\n` +
+    `- Có 2 mốc thời gian rõ ràng.\n` +
+    `- Có 1 đồ vật liên quan trực tiếp.\n` +
+    `- Bối cảnh phải rất đời thường, không màu mè, không giống đề thi.\n` +
+    `- Bối cảnh phải có 1 chi tiết khớp lời khai để lời khai nghe có lý lúc đầu.\n` +
+    `- Đồng thời phải có 1 chi tiết nhỏ nhưng quan trọng để bác lại lời khai.\n` +
+    `- Lời khai phải đúng một phần, sai ở mấu chốt.\n\n` +
+
+    `${diversityBlock}` +
+    `${alignmentBlock}` +
+    `Lời khai phải:\n` +
+    `- Ngắn, tự nhiên, giống học sinh đang cãi.\n` +
+    `- Phủ nhận hành vi, không tự thú.\n` +
+    `- Có 1 câu chống chế đời thường.\n` +
+    `- Câu chống chế đó phải ẩn 1 hiểu sai về ${subjectLabel}.\n` +
+    `- Không công thức, không định lý, không phương trình, không số đo dài dòng, không giải thích như làm bài.\n` +
+    `- Không dùng giọng AI, không văn vẻ, không tranh luận quá trơn tru.\n\n` +
+
+    `${subjectConstraint}\n\n` +
+
+    `Tránh:\n` +
+    `- Bạo lực nặng, chết người, hình sự, drama quá mức.\n` +
+    `- Bối cảnh nghe như truyện trinh thám sân khấu.\n` +
+    `- Lời khai lộ rõ kiến thức như đang trả bài.\n\n` +
+
+    `Trả về DUY NHẤT JSON hợp lệ với các key: boi_canh, ten_hung_thu, loi_khai, kien_thuc_an, tu_khoa_thang_cuoc.\n` +
+    `- boi_canh: 4-5 câu, tự nhiên như chuyện thật ở trường.\n` +
+    `- ten_hung_thu: tên riêng học sinh, 1-2 từ.\n` +
+    `- loi_khai: 3-4 câu, ngắn, tự nhiên, hơi chống chế.\n` +
+    `- kien_thuc_an: chỉ rõ câu nào sai, kiến thức đúng của ${subjectLabel} là gì, và chi tiết nào trong bối cảnh bác lại lời khai.\n` +
+    `- tu_khoa_thang_cuoc: 3-5 từ khóa ngắn.\n` +
+    `Không markdown. Không giải thích ngoài JSON.`;
     
     logger.debug('Case generation prompt prepared', {
       roomCode,

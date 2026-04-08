@@ -322,21 +322,6 @@ const Game = () => {
                       <p className="font-body text-xs text-primary uppercase tracking-wider mb-1">Lời Khai Ngoại Phạm</p>
                       <p className="font-body text-sm text-foreground italic">"{caseData.loi_khai}"</p>
                     </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-body text-xs text-muted-foreground uppercase tracking-wider">Mức Độ Nghi Ngờ</p>
-                        <span className="font-display text-xs text-foreground">{Math.round(suspicion)}%</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <motion.div
-                          className={`h-full rounded-full ${suspicionColor}`}
-                          animate={{ width: `${suspicion}%` }}
-                          transition={{ duration: 0.5 }}
-                        />
-                      </div>
-                      <p className="font-body text-xs text-muted-foreground mt-1">{phaseLabel}</p>
-                    </div>
                   </div>
                 </motion.div>
               )}
