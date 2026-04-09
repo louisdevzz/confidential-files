@@ -310,9 +310,9 @@ const Game = () => {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-4 p-3 lg:p-6 max-w-6xl mx-auto w-full">
+      <main className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-4 p-3 lg:p-6 max-w-6xl mx-auto w-full min-w-0">
         {/* ── Left: Case File ── */}
-        <div className="lg:w-[22rem] flex-shrink-0">
+        <div className="lg:w-[22rem] flex-shrink-0 min-w-0 lg:min-w-[22rem]">
           <div className="bg-card mystery-border rounded-2xl overflow-hidden">
             <button
               onClick={() => setCaseOpen((v) => !v)}
@@ -341,12 +341,12 @@ const Game = () => {
 
                     <div>
                       <p className="font-body text-xs text-muted-foreground uppercase tracking-wider mb-1">Bối Cảnh Vụ Án</p>
-                      <p className="font-body text-sm text-foreground bg-muted/20 rounded-lg p-3 leading-relaxed border border-border/50">{caseData.boi_canh}</p>
+                      <p className="font-body text-sm text-foreground bg-muted/20 rounded-lg p-3 leading-relaxed border border-border/50 whitespace-pre-wrap break-words">{caseData.boi_canh}</p>
                     </div>
 
                     <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
                       <p className="font-body text-xs text-primary uppercase tracking-wider mb-1">Lời Khai Ngoại Phạm</p>
-                      <p className="font-body text-sm text-foreground italic">"{caseData.loi_khai}"</p>
+                      <p className="font-body text-sm text-foreground italic whitespace-pre-wrap break-words">"{caseData.loi_khai}"</p>
                     </div>
                   </div>
                 </motion.div>
@@ -356,7 +356,7 @@ const Game = () => {
         </div>
 
         {/* ── Right: Shared Chat ── */}
-        <div className="flex-1 flex flex-col bg-card mystery-border rounded-2xl overflow-hidden min-h-[60vh] lg:min-h-0">
+        <div className="flex-1 min-w-0 flex flex-col bg-card mystery-border rounded-2xl overflow-hidden min-h-[60vh] lg:min-h-0">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
             <div className="w-9 h-9 rounded-full bg-red-900/30 border border-red-500/30 flex items-center justify-center text-lg">🎭</div>
             <div>
@@ -369,14 +369,14 @@ const Game = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.map((msg) => (
               <motion.div
                 key={msg.id}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 font-body text-sm leading-relaxed whitespace-pre-wrap ${
+                <div className={`max-w-[80%] min-w-0 rounded-2xl px-4 py-3 font-body text-sm leading-relaxed whitespace-pre-wrap break-words ${
                   msg.role === "user"
                     ? "bg-primary/20 border border-primary/20 text-foreground rounded-br-sm"
                     : "bg-muted/40 border border-border text-foreground rounded-bl-sm"
@@ -422,7 +422,8 @@ const Game = () => {
                   disabled={isSending || isAiTyping || won}
                   placeholder={won ? "Vụ án đã được phá..." : "Dùng kiến thức để vạch trần lời khai giả..."}
                 rows={1}
-                className="flex-1 max-h-44 resize-none overflow-y-auto bg-muted/30 border border-border rounded-xl px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground leading-6 focus:outline-none focus:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                wrap="soft"
+                className="flex-1 max-h-44 resize-none overflow-y-auto bg-muted/30 border border-border rounded-xl px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground leading-6 whitespace-pre-wrap break-words focus:outline-none focus:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 onClick={sendMessage}
